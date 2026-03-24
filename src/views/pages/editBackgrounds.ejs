@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<%- include('../partials/head', { title: 'Edit Backgrounds' }); %>
+
+  <body>
+    <script>
+      var error = "<%= error %>";
+      if (error) {
+        alert(error);
+      }
+    </script>
+    <div class="container">
+      <div class="py-3">
+        <a href="/admin/offices" class="btn btn-primary">&lt; All Offices</a>
+      </div>
+      <h3 class="my-4">Edit Office Backgrounds</h3>
+      <div class="row">
+        <div class="col-8 card shadow mb-5">
+          <div class="card-body">
+            <form action="/admin/office/edit/backgrounds/<%= headings?.office %>" method="post"
+              enctype="multipart/form-data">  
+              <div class="row mb-3">
+                <div class="col-6">
+                  <label for="people" class="form-label">Header Image</label>
+                  <input type="file" class="form-control" id="people" name="headerImage" />
+                  <p>Current Image:</p>
+                  <img src="https://office-backend.amptechnology.in/<%= headings?.headerImage?.slice(7) %>"
+                    class="img-fluid" alt="Image" />
+                </div>
+              <div class="col-6">
+                <label for="footer" class="form-label">Footer Image</label>
+                <input type="file" class="form-control" id="footer" name="footerImage" />
+                <p>Current Image:</p>
+                <img src="https://office-backend.amptechnology.in/<%= headings?.footerImage?.slice(7) %>"
+                  class="img-fluid" alt="Image" />
+              </div>
+              </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Update</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    </div>
+  </body>
+
+</html>

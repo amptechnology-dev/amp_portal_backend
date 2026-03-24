@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <%- include('../partials/head', { title: 'Edit Titles' }); %>
+
+  <body>
+    <script>
+      var error = "<%= error %>";
+      if (error) {
+        alert(error);
+      }
+    </script>
+    <div class="container">
+      <div class="py-3">
+        <a href="/admin/offices" class="btn btn-primary">&lt; All Offices</a>
+      </div>
+      <h3 class="my-4">Edit Office Headings</h3>
+      <div class="row">
+        <div class="col-8 card shadow mb-5">
+          <div class="card-body">
+            <form action="/admin/office/edit/headings/<%= headings?.office %>" method="post">
+              <div class="row mb-3">
+                <div class="col-6">
+                  <label for="people" class="form-label">Our Owners</label>
+                  <input type="text" class="form-control" id="people" placeholder="Enter your heading" name="people" value="<%= headings?.people %>" />
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary w-100">Update</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

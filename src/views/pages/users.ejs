@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <%- include('../partials/head', { title: 'All Users'}); %>
+  <head>
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.0.7/css/dataTables.bootstrap5.min.css" />
+    <script>
+      function confirmDelete(userId) {
+        if (confirm("Are you sure you want to delete this office?")) {
+          document.getElementById("delete-form-" + userId).submit();
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <a href="/admin/logout" class="btn btn-danger float-end my-3">Logout</a>
+      <div class="py-3">
+        <h2>All Users</h2>
+      </div>
+      <div class="my-2 mb-3">
+        <a href="/admin/user/add" class="btn btn-success">Add New User</a>
+        <a href="/admin/offices" class="btn btn-primary ms-2">Manage Offices</a>
+      </div>
+      <table class="table table-striped table-responsive" id="users">
+        <thead class="table-primary">
+          <tr>
+            <th scope="col">Sl No</th>
+            <th scope="col">Username</th>
+            <th scope="col">Full Name</th>
+            <th scope="col">Office</th>
+            <th scope="col">Email</th>
+            <th scope="col">Added Date</th>
+            <th scope="col">Active</th>
+            <th scope="col">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% users && users?.forEach((user, index)=> { %>
+          <tr>
+            <td><%= index+1 %></td>
+            <td><%= user.username %></td>
+            <td><%= user.fullName %></td>
+            <td><%= user.office?.name %></td>
+            <td><%= user.email %></td>
+            <td><%= new Date(user.createdAt ).toLocaleDateString();%></td>
+            <td><%= user.isActive %></td>
+            <td>
+              <div class="d-flex justify-content-evenly align-items-center gap-2">
+                <!-- <a href="/admin/office/info/<%= user._id %>" class="btn btn-sm btn-info">Info</a> -->
+                <a href="/admin/user/edit/<%= user._id %>" class="btn btn-sm btn-primary">Edit</a>
+                <form id="delete-form-<%= user._id %>" method="POST" action="/admin/user/delete/<%= user._id %>">
+                  <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('<%= user._id %>')">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="https://cdn.datatables.net/2.0.7/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.7/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+      let table = new DataTable("#users", {});
+    </script>
+  </body>
+</html>

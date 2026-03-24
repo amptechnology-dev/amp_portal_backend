@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <%- include('../partials/head', { title: 'Admin Login'}); %>
+  <body>
+    <div class="bg-light py-3 py-md-5" style="height: 100vh">
+      <div class="container">
+        <h1 class="text-center">Admin Login</h1>
+        <div class="row justify-content-md-center">
+          <div class="col-12 col-md-11 col-lg-8 col-xl-7 col-xxl-6">
+            <div class="bg-white p-4 p-md-5 rounded shadow-sm">
+              <div class="row">
+                <div class="col-12">
+                  <div class="text-center mb-5">
+                    <a href="#!">
+                      <img src="/amp-logo.webp" alt="Logo" width="175" height="100" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+              <form action="/admin/login" method="post">
+                <div class="row gy-3 gy-md-4 overflow-hidden">
+                  <div class="col-12">
+                    <label for="username" class="form-label">Username <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                      <input type="text" class="form-control" name="username" id="username" required />
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                      <input type="password" class="form-control" name="password" id="password" value="" required />
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <div class="d-grid">
+                      <button class="btn btn-primary btn-lg" type="submit">Log In</button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

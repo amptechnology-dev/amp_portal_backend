@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <%- include('../partials/head', { title: 'Add a New User'}); %>
+  <body>
+    <script>
+      var error = "<%= error %>";
+      if (error) {
+        alert(error);
+      }
+    </script>
+    <div class="container">
+      <div class="py-3">
+        <a href="/admin/users" class="btn btn-primary">&lt; All Users</a>
+      </div>
+      <h3 class="my-4">Add a New User</h3>
+      <div class="card w-75 shadow mb-5">
+        <div class="card-body">
+          <form action="/admin/user/add" method="post">
+            <div class="row mb-3">
+              <div class="col">
+                <select class="form-select" name="office" required>
+                  <option selected disabled value="">Select Office</option>
+                  <% allOffices.forEach(office => { %>
+                  <option value="<%= office._id %>"><%= office.name %></option>
+                  <% }); %>
+                </select>
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-6">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" placeholder="Enter Username" name="username" />
+              </div>
+              <div class="col-6">
+                <label for="name" class="form-label">Full Name</label>
+                <input type="text" class="form-control" id="name" placeholder="Enter User's Full Name" name="fullName" />
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-6">
+                <label for="password" class="form-label">Password</label>
+                <input type="text" name="password" id="password" class="form-control" placeholder="Enter User Password" />
+              </div>
+              <div class="col-6">
+                <label for="email" class="form-label">Email ID</label>
+                <input type="email" name="email" id="email" class="form-control" placeholder="Enter Email ID" />
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Submit</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

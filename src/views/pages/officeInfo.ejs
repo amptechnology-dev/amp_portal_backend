@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <%- include('../partials/head', { title: 'Office Info'}); %>
+  <body>
+    <div class="container">
+      <a href="/admin/logout" class="btn btn-danger float-end my-3">Logout</a>
+      <div class="py-3">
+        <a href="/admin/offices" class="btn btn-primary">&lt; All Offices</a>
+      </div>
+      <div class="card text-bg-light w-75 mx-auto my-5">
+        <div class="card-header">Office Information</div>
+        <div class="card-body">
+          <img src=" <%= office.logo %>" alt="Office Logo" />
+          <h5 class="card-title <%= office.is_active ? 'text-success' : 'text-danger' %>"><%= office.name %> (<%= office.is_active ? 'Active' : 'Inactive' %>)</h5>
+          <p class="card-text">
+            <strong>Id: </strong><%=office._id%> <br />
+            <strong>Address: </strong><%= office.address %>
+            <br />
+            <strong>Landmark: </strong><%= office.landmark %>
+            <br />
+            <strong>Mobile: </strong><%= office.mobile %> / <%= office.mobile_alt %>
+            <br />
+            <strong>Whatsapp: </strong><%= office.whatsapp %>
+            <br />
+            <strong>Landline: </strong><%= office.landline %>
+            <br />
+            <strong>Email: </strong><%= office.email %>
+            <br />
+            <strong>Block: </strong> <%= office.block %> | <strong>District: </strong><%= office.district %>
+          </p>
+          <p class="card-text fs-5"><strong>Enabled Services:</strong> <%= office.enabled_services %></p>
+          <p class="card-text"><strong>Created: </strong><%= office.createdAt %> | <strong>Updated: </strong><%= office.updatedAt %></p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<%- include('../partials/head', { title: 'Edit Office' }); %>
+
+  <body>
+    <script>
+      var error = "<%= error %>";
+      if (error) {
+        alert(error);
+      }
+    </script>
+    <div class="container">
+      <div class="py-3">
+        <a href="/admin/offices" class="btn btn-primary">&lt; All Offices</a>
+      </div>
+      <h3 class="my-4">Edit Office Data</h3>
+      <div class="row">
+        <div class="col-8 card shadow mb-5">
+          <div class="card-body">
+            <form action="/admin/office/update/<%= office._id %>" method="post">
+              <div class="row mb-3">
+                <div class="col-6">
+                  <label for="name" class="form-label">Name</label>
+                  <input type="text" class="form-control" id="name" placeholder="Enter your name" name="name"
+                    value="<%= office.name %>" />
+                </div>
+                <div class="col-6">
+                  <label for="id" class="form-label">Office ID (if any)</label>
+                  <input type="text" class="form-control" id="id" placeholder="Enter Office ID"
+                    value="<%= office.office_id %>" />
+                </div>
+              </div>
+              <div class="row mb-3">
+                <div class="col-6">
+                  <label for="mobile" class="form-label">Mobile No.</label>
+                  <input type="tel" name="mobile" id="mobile" class="form-control"
+                    placeholder="Enter Primary Mobile Number" value="<%= office.mobile %>" />
+                </div>
+                <div class="col-6">
+                  <label for="email" class="form-label">Email ID</label>
+                  <input type="email" name="email" id="email" class="form-control" placeholder="Enter Email ID"
+                    value="<%= office.email %>" />
+                </div>
+              </div>
+              <div class="row mb-3">
+                <div class="col-6">
+                  <label for="whatsapp" class="form-label">Whatsapp No.</label>
+                  <input type="tel" name="whatsapp" id="whatsapp" class="form-control"
+                    placeholder="Enter Whatsapp Number" value="<%= office.whatsapp %>" />
+                </div>
+                <div class="col-6">
+                  <label for="landline" class="form-label">Landline</label>
+                  <input type="text" name="landline" id="landline" class="form-control" placeholder="Enter Landline"
+                    value="<%= office.landline %>" />
+                </div>
+              </div>
+              <div class="row mb-3">
+                <div class="col">
+                  <label for="address" class="form-label">Office Address</label>
+                  <textarea name="address" id="address" class="form-control"><%= office.address %></textarea>
+                </div>
+              </div>
+              <div class="row mb-3">
+                <div class="col-6">
+                  <label for="block" class="form-label">Block</label>
+                  <input type="text" name="block" id="block" class="form-control" placeholder="Enter Block"
+                    value="<%= office.block %>" />
+                </div>
+                <div class="col-6">
+                  <label for="district" class="form-label">District</label>
+                  <input type="text" name="district" id="district" class="form-control" placeholder="Enter District"
+                    value="<%= office.district %>" />
+                </div>
+              </div>
+              <div class="row mb-3">
+                <div class="col-6">
+                  <label for="start" class="form-label">Start Date</label>
+                  <input type="date" name="start_date" id="start" class="form-control" placeholder="Enter Start Date"
+                    value="<%= new Date(office.start_date).toISOString().split('T')[0] %>" />
+                </div>
+                <div class="col-6">
+                  <label for="fin" class="form-label">Financial Year</label>
+                  <input type="text" name="fin_year" id="fin" class="form-control"
+                    placeholder="Enter Financial Year. e.g. 2023-2024" value="<%= office.fin_year %>" />
+                </div>
+              </div>
+              <div class="mb-3">
+                <p class="form-label">Enabled Services</p>
+                <input type="checkbox" class="btn-check" id="about" name="enabled_services" value="about"
+                  autocomplete="off" <%=office.enabled_services.includes("about") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="about">About Us</label>
+                <input type="checkbox" class="btn-check" id="ads" name="enabled_services" value="ads" autocomplete="off"
+                  <%=office.enabled_services.includes("ads") ? "checked" : "" %>/>
+                <label class="btn btn-outline-dark" for="ads">Ads</label>
+                <input type="checkbox" class="btn-check" id="notice" name="enabled_services" value="notice"
+                  autocomplete="off" <%=office.enabled_services.includes("notice") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="notice">Notice</label>
+                <input type="checkbox" class="btn-check" id="service" name="enabled_services" value="service"
+                  autocomplete="off" <%=office.enabled_services.includes("service") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="service">Service</label>
+                <input type="checkbox" class="btn-check" id="gallery" name="enabled_services" value="gallery"
+                  autocomplete="off" <%=office.enabled_services.includes("gallery") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="gallery">Gallery</label>
+                <input type="checkbox" class="btn-check" id="staff" name="enabled_services" value="staff"
+                  autocomplete="off" <%=office.enabled_services.includes("staff") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="staff">Staff</label>
+                <input type="checkbox" class="btn-check" id="faq" name="enabled_services" value="faq" autocomplete="off"
+                  <%=office.enabled_services.includes("faq") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="faq">Faq</label>
+                <input type="checkbox" class="btn-check" id="video" name="enabled_services" value="video-gallery"
+                  autocomplete="off" <%=office.enabled_services.includes("video-gallery") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="video">Video Gallery</label>
+                <input type="checkbox" class="btn-check" id="people" name="enabled_services" value="people"
+                  autocomplete="off" <%=office.enabled_services.includes("people") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="people">Member Desk</label>
+                <input type="checkbox" class="btn-check" id="grievance" name="enabled_services" value="grievance"
+                  autocomplete="off" <%=office.enabled_services.includes("grievance") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="grievance">Grievance</label>
+                <input type="checkbox" class="btn-check" id="counter" name="enabled_services" value="counter"
+                  autocomplete="off" <%=office.enabled_services.includes("counter") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="counter">Counter</label>
+                <input type="checkbox" class="btn-check" id="video-banner" name="enabled_services" value="video-banner"
+                  autocomplete="off" <%=office.enabled_services.includes("video-banner") ? "checked" : "" %> />
+                <label class="btn btn-outline-dark" for="video-banner">Video Banner</label>
+              </div>
+              <div class="mb-3">
+                <p class="form-label">Office Status</p>
+                <input type="radio" class="btn-check" name="is_active" id="active" autocomplete="off" value="true"
+                  <%=office.is_active ? "checked" : "" %>>
+                <label class="btn btn-outline-success" for="active">Active</label>
+                <input type="radio" class="btn-check" name="is_active" id="inactive" autocomplete="off" value="false"
+                  <%=office.is_active ? "" : "checked" %>>
+                <label class="btn btn-outline-danger" for="inactive">InActive</label>
+              </div>
+              <button type="submit" class="btn btn-primary w-100">Update</button>
+            </form>
+          </div>
+        </div>
+        <div class="card col-3 ms-4 shadow mb-5">
+          <div class="card-header">More Options</div>
+          <div class="card-body">
+            <a href="/admin/office/edit/headings/<%= office._id %>" class="btn btn-success mb-3">Edit Section
+              Headings</a>
+            <a href="/admin/office/edit/backgrounds/<%= office._id %>" class="btn btn-success">Edit Backgrounds</a>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+  </body>
+
+</html>
