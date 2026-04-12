@@ -21,7 +21,11 @@ import { Bank } from "../models/bank.model.js";
 import { Heading } from "../models/heading.model.js";
 import { UsefulLink } from "../models/usefullink.model.js";
 import { Counter } from "../models/counter.model.js";
+import { Job } from "../models/job.model.js";
+import { Recruitment } from "../models/recruitment.model.js";
 import deleteFile from "../utils/DeleteFile.js";
+import { uploadToR2, deleteFromR2 } from "../utils/r2Uploader.js";
+import path from "path";
 
 export const getGallery = asyncHandler(async (req, res) => {
   const { id } = req.query;
@@ -219,7 +223,7 @@ export const getHeadings = asyncHandler(async (req, res) => {
   try {
     const headings = await Heading.findOne({ office: req.office }).select("-office").lean();
     return res.json(new ApiResponse(200, headings, "Headings Data fetched."));
-  } catch (error) {}
+  } catch (error) { }
 });
 
 export const getUsefulLinks = asyncHandler(async (req, res) => {
@@ -237,5 +241,102 @@ export const getCounter = asyncHandler(async (req, res) => {
     return res.json(new ApiResponse(200, counter, "Counter Data fetched."));
   } catch (error) {
     return res.status(500).json(new ApiResponse(500, "Internal Server Error", error.message));
+  }
+});
+
+export const jobList = asyncHandler(async (req, res) => {
+  try {
+    const jobs = await Job.find({isActive: true}).sort({ createdAt: -1 });
+    return res.json(
+      new ApiResponse(200, jobs, "Job List Fetched Successfully!")
+    );
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
+  }
+});
+
+export const postRecruitment = asyncHandler(async (req, res) => {
+
+  const {
+    jobId,
+    name,
+    dob,
+    contactNo,
+    gender,
+    religion,
+    address,
+    experienceInYears,
+    previousCompanyName,
+    education,
+    previousSalary
+  } = req.body;
+
+  try {
+
+    let imageUrl = null;
+    let cvUrl = null;
+
+    // IMAGE UPLOAD
+    if (req.files?.image?.[0]) {
+
+      const image = req.files.image[0];
+
+      const fileName =
+        `office-management/recruitment/image-${Date.now()}${path.extname(image.originalname)}`;
+
+      imageUrl = await uploadToR2(
+        image.buffer,
+        fileName,
+        image.mimetype
+      );
+    }
+
+    // CV UPLOAD
+    if (req.files?.cv?.[0]) {
+
+      const cv = req.files.cv[0];
+
+      const fileName =
+        `office-management/recruitment/cv-${Date.now()}${path.extname(cv.originalname)}`;
+
+      cvUrl = await uploadToR2(
+        cv.buffer,
+        fileName,
+        cv.mimetype
+      );
+    }
+
+    const recruitment = await Recruitment.create({
+      office: req.office,
+      jobId,
+      name,
+      dob,
+      contactNo,
+      gender,
+      religion,
+      address,
+      experienceInYears,
+      previousCompanyName,
+      education,
+      previousSalary,
+      image: imageUrl,
+      cv: cvUrl
+    });
+
+    return res.status(201).json(
+      new ApiResponse(
+        201,
+        recruitment,
+        "Recruitment Data Added Successfully!"
+      )
+    );
+
+  } catch (error) {
+
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
   }
 });

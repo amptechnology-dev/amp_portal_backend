@@ -78,6 +78,14 @@ import {
   createCounter,
   updateCounter,
   deleteCounter,
+  addJob,
+  jobList,
+  singleJob,
+  updateJob,
+  deleteJob,
+  getAllApplications,
+  changeApplicationStatus,
+  deleteApplication,
 } from "../controllers/dashboard.controller.js";
 import validate from "../middlewares/validator.middleware.js";
 import { officeSchemaValidation } from "../validations/officeValidation.js";
@@ -229,5 +237,17 @@ router.route("/counter/list").get(listCounter);
 router.route("/counter/insert").post(createCounter);
 router.route("/counter/update/:counterItemId").put(updateCounter);
 router.route("/counter/delete/:counterItemId").delete(deleteCounter);
+
+// Job Routes
+router.route("/job/list").get(jobList);
+router.route("/job/insert").post(addJob);
+router.route("/job/:jobId").get(singleJob);
+router.route("/job/update/:jobId").put(updateJob);
+router.route("/job/delete/:jobId").delete(deleteJob);
+
+// Applications Routes
+router.route("/applications/list").get(getAllApplications);
+router.route("/applications/status/update/:id").put(changeApplicationStatus);
+router.route("/applications/delete/:id").delete(deleteApplication);
 
 export default router;

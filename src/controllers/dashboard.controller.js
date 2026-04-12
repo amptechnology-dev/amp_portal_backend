@@ -21,6 +21,8 @@ import { Bank } from "../models/bank.model.js";
 import { Enquiry } from "../models/enquiry.model.js";
 import { UsefulLink } from "../models/usefullink.model.js";
 import { Counter } from "../models/counter.model.js";
+import { Job } from "../models/job.model.js";
+import { Recruitment } from "../models/recruitment.model.js";
 import { uploadToR2, deleteFromR2 } from "../utils/r2Uploader.js";
 import deleteFile from "../utils/DeleteFile.js";
 import path from "path";
@@ -1098,3 +1100,258 @@ export const deleteCounter = asyncHandler(async (req, res) => {
     return res.status(500).json(new ApiError(500, "Internal Server Error", error.message));
   }
 });
+
+export const addJob = asyncHandler(async (req, res) => {
+  try {
+    const officeId = req.user?.office;
+
+    if (!officeId) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Office not found", "Authenticated user does not have an office assigned."));
+    }
+
+    const { office, ...jobBody } = req.body;
+
+    const job = await Job.create({
+      ...jobBody,
+      office: officeId,
+    });
+
+    return res.json(
+      new ApiResponse(201, job, "Job Created Successfully!")
+    );
+
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
+  }
+});
+
+export const jobList = asyncHandler(async (req, res) => {
+  try {
+
+    const jobs = await Job.find({
+      office: req.user?.office,
+    }).sort({ createdAt: -1 });
+
+    return res.json(
+      new ApiResponse(200, jobs, "Job List Fetched Successfully!")
+    );
+
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
+  }
+});
+
+export const singleJob = asyncHandler(async (req, res) => {
+  try {
+
+    const { jobId } = req.params;
+
+    const job = await Job.findOne({
+      _id: jobId,
+      office: req.user?.office,
+    });
+
+    if (!job) {
+      return res
+        .status(404)
+        .json(new ApiResponse(404, "Not Found", "Job not found"));
+    }
+
+    return res.json(
+      new ApiResponse(200, job, "Job Details Fetched Successfully!")
+    );
+
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
+  }
+});
+
+export const updateJob = asyncHandler(async (req, res) => {
+  try {
+
+    const { jobId } = req.params;
+
+    const updatedJob = await Job.findOneAndUpdate(
+      {
+        _id: jobId,
+        office: req.user?.office,
+      },
+      req.body,
+      { new: true }
+    );
+
+    if (!updatedJob) {
+      return res
+        .status(404)
+        .json(new ApiResponse(404, "Not Found", "Job not found"));
+    }
+
+    return res.json(
+      new ApiResponse(200, updatedJob, "Job Updated Successfully!")
+    );
+
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
+  }
+});
+
+export const deleteJob = asyncHandler(async (req, res) => {
+  try {
+
+    const { jobId } = req.params;
+
+    const deletedJob = await Job.findOneAndDelete({
+      _id: jobId,
+      office: req.user?.office,
+    });
+
+    if (!deletedJob) {
+      return res
+        .status(404)
+        .json(new ApiResponse(404, "Not Found", "Job not found"));
+    }
+
+    return res.json(
+      new ApiResponse(200, deletedJob, "Job Deleted Successfully!")
+    );
+
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
+  }
+});
+
+export const getAllApplications = asyncHandler(async (req, res) => {
+  try {
+
+    const applications = await Recruitment.find({
+      office: req.user?.office
+    })
+      .populate("jobId", "jobTitle jobType")
+      .sort({ createdAt: -1 });
+
+    const formattedApplications = applications.map((app) => ({
+      _id: app._id,
+      name: app.name,
+      contactNo: app.contactNo,
+      gender: app.gender,
+      experienceInYears: app.experienceInYears,
+      education: app.education,
+      status: app.status,
+      appliedAt: app.createdAt,
+
+      jobTitle: app.jobId?.jobTitle,
+      jobType: app.jobId?.jobType,
+
+      // Already full CDN URL saved in DB
+      image: app.image || null,
+      cv: app.cv || null
+    }));
+
+    return res.json(
+      new ApiResponse(
+        200,
+        formattedApplications,
+        "Applications fetched successfully!"
+      )
+    );
+
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
+  }
+});
+
+export const changeApplicationStatus = asyncHandler(async (req, res) => {
+  try {
+
+    const applicationId = req.params?.applicationId || req.params?.id;
+    const { status } = req.body;
+
+    if (!applicationId) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Bad Request", "Application id is required."));
+    }
+
+    const updatedApplication = await Recruitment.findOneAndUpdate(
+      {
+        _id: applicationId,
+        office: req.user?.office
+      },
+      { status },
+      { new: true }
+    );
+
+    if (!updatedApplication) {
+      return res
+        .status(404)
+        .json(new ApiResponse(404, "Not Found", "Application not found"));
+    }
+
+    return res.json(
+      new ApiResponse(
+        200,
+        updatedApplication,
+        "Application status updated successfully!"
+      )
+    );
+
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
+  }
+});
+
+export const deleteApplication = asyncHandler(async (req, res) => {
+  try {
+
+    const applicationId = req.params?.applicationId || req.params?.id;
+
+    if (!applicationId) {
+      return res
+        .status(400)
+        .json(new ApiError(400, "Bad Request", "Application id is required."));
+    }
+
+    const deletedApplication = await Recruitment.findOneAndDelete({
+      _id: applicationId,
+      office: req.user?.office
+    });
+
+    if (!deletedApplication) {
+      return res
+        .status(404)
+        .json(new ApiResponse(404, "Not Found", "Application not found"));
+    }
+
+    return res.json(
+      new ApiResponse(
+        200,
+        deletedApplication,
+        "Application deleted successfully!"
+      )
+    );
+
+  } catch (error) {
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
+  }
+});
+
+
+

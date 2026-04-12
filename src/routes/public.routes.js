@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as publicController from "../controllers/public.controller.js";
 import { upload as pdfUpload } from "../middlewares/pdfUpload.middleware.js";
+import { upload as shareupload } from "../middlewares/sharedMulter.js";
 
 const router = Router();
 router.route("/ping").get((req, res) => {
@@ -27,5 +28,12 @@ router.route("/bank").get(publicController.getBank);
 router.route("/headings").get(publicController.getHeadings);
 router.route("/useful_links").get(publicController.getUsefulLinks);
 router.route("/counter").get(publicController.getCounter);
+router.route("/jobs").get(publicController.jobList);
+router.route("/recruitment").post(shareupload.fields([
+    { name: "cv", maxCount: 1 },
+    { name: "image", maxCount: 1 }
+  ]),
+  publicController.postRecruitment
+);
 
 export default router;
