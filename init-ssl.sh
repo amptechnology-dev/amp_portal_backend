@@ -3,6 +3,7 @@ set -e
 
 DOMAIN="office.amptechnology.in"
 EMAIL="devs.amptechnology@gmail.com"
+APP_PORT="9001"
 CERT_PATH="./certbot/conf/live/$DOMAIN/fullchain.pem"
 
 echo "=== Starting SSL setup for $DOMAIN ==="
@@ -11,18 +12,59 @@ echo "=== Starting SSL setup for $DOMAIN ==="
 mkdir -p ./nginx/conf.d
 mkdir -p ./certbot/www/.well-known/acme-challenge
 mkdir -p ./certbot/conf
+chown -R root:root ./certbot
 chmod -R 755 ./certbot
+
+# Writes the final HTTPS reverse-proxy config for the Bun app
+write_https_config() {
+cat > ./nginx/conf.d/app.conf << NGINXEOF
+server {
+    listen 80;
+    server_name $DOMAIN;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://\$host\$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name $DOMAIN;
+
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+
+    location / {
+        proxy_pass http://bun-app:$APP_PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+NGINXEOF
+}
 
 # ─────────────────────────────────────────────────────────────
 # CASE 1: Certificate already exists → just redeploy app stack
 # ─────────────────────────────────────────────────────────────
 if test -f "$CERT_PATH"; then
   echo "Certificate already exists — skipping SSL generation."
-  echo "Redeploying updated app stack..."
 
+  # Make sure the HTTPS config is in place
+  write_https_config
+
+  echo "Redeploying updated app stack..."
   docker compose up -d --build --remove-orphans
 
-  # Give app a moment to start, then reload nginx
   sleep 5
   docker compose exec nginx nginx -s reload || true
 
@@ -56,8 +98,9 @@ NGINXEOF
 
 echo "Temporary HTTP nginx config written."
 
-# Tear down any existing containers cleanly
-docker compose down || true
+# Tear down any existing containers + force remove named containers
+docker compose down --remove-orphans || true
+docker rm -f nginx bun-app mongodb mongo-init 2>/dev/null || true
 
 # Start nginx only
 docker compose up -d --no-deps nginx
@@ -88,6 +131,7 @@ docker run --rm \
   -d "$DOMAIN"
 
 # Fix ownership
+chown -R root:root ./certbot
 chmod -R 755 ./certbot
 sleep 2
 
@@ -101,12 +145,13 @@ fi
 
 echo "Certificate obtained successfully!"
 
-# Restore the real HTTPS nginx config from the repo
-git checkout -- ./nginx/conf.d/app.conf
-echo "HTTPS nginx config restored from repo."
+# Write the real HTTPS reverse-proxy config now that certs exist
+write_https_config
+echo "HTTPS nginx config written."
 
-# Stop temporary nginx
-docker compose down nginx || true
+# Stop temporary nginx cleanly
+docker compose down --remove-orphans || true
+docker rm -f nginx 2>/dev/null || true
 
 # Start the full stack
 echo "Starting full application stack..."
