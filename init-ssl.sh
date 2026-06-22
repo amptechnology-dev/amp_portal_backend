@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-DOMAIN="office.amptechnology.in"
+DOMAIN="officebackend.amptechnology.in"
 EMAIL="devs.amptechnology@gmail.com"
 APP_PORT="9001"
 CERT_PATH="./certbot/conf/live/$DOMAIN/fullchain.pem"
