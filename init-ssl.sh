@@ -15,7 +15,7 @@ mkdir -p ./certbot/conf
 chown -R root:root ./certbot
 chmod -R 755 ./certbot
 
-# Writes the final HTTPS reverse-proxy config for the Bun app
+# Writes the final HTTPS reverse-proxy config for the Node app
 write_https_config() {
 cat > ./nginx/conf.d/app.conf << NGINXEOF
 server {
@@ -39,7 +39,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
 
     location / {
-        proxy_pass http://bun-app:$APP_PORT;
+        proxy_pass http://node-app:$APP_PORT;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -59,10 +59,11 @@ NGINXEOF
 if test -f "$CERT_PATH"; then
   echo "Certificate already exists — skipping SSL generation."
 
-  # Make sure the HTTPS config is in place
   write_https_config
 
   echo "Redeploying updated app stack..."
+  docker compose down --remove-orphans || true
+  docker rm -f nginx node-app mongodb mongo-init 2>/dev/null || true
   docker compose up -d --build --remove-orphans
 
   sleep 5
@@ -100,7 +101,7 @@ echo "Temporary HTTP nginx config written."
 
 # Tear down any existing containers + force remove named containers
 docker compose down --remove-orphans || true
-docker rm -f nginx bun-app mongodb mongo-init 2>/dev/null || true
+docker rm -f nginx node-app mongodb mongo-init 2>/dev/null || true
 
 # Start nginx only
 docker compose up -d --no-deps nginx
@@ -151,7 +152,7 @@ echo "HTTPS nginx config written."
 
 # Stop temporary nginx cleanly
 docker compose down --remove-orphans || true
-docker rm -f nginx 2>/dev/null || true
+docker rm -f nginx node-app mongodb mongo-init 2>/dev/null || true
 
 # Start the full stack
 echo "Starting full application stack..."
