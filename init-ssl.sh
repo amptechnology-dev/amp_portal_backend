@@ -8,6 +8,10 @@ CERT_PATH="./certbot/conf/live/$DOMAIN/fullchain.pem"
 
 echo "=== Starting SSL setup for $DOMAIN ==="
 
+# Kill any native mongod process that might hold port 27017
+systemctl stop mongod 2>/dev/null || true
+pkill mongod 2>/dev/null || true
+
 # Ensure required directories exist
 mkdir -p ./nginx/conf.d
 mkdir -p ./certbot/www/.well-known/acme-challenge
@@ -64,6 +68,7 @@ if test -f "$CERT_PATH"; then
   echo "Redeploying updated app stack..."
   docker compose down --remove-orphans || true
   docker rm -f nginx node-app mongodb mongo-init 2>/dev/null || true
+
   docker compose up -d --build --remove-orphans
 
   sleep 5
@@ -159,7 +164,7 @@ echo "Starting full application stack..."
 docker compose up -d --build --remove-orphans
 
 echo "Waiting for services to be ready..."
-sleep 8
+sleep 10
 
 # Reload nginx with HTTPS config
 docker compose exec nginx nginx -s reload || true
