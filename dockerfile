@@ -1,9 +1,9 @@
-FROM oven/bun:1
+FROM node:20-alpine
 WORKDIR /usr/src/app
 
 # Copy dependencies
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 # Copy app code
 COPY . .
@@ -14,4 +14,4 @@ ENV NODE_ENV=production
 # Expose app port
 EXPOSE 9001
 
-CMD ["bun", "run", "start"]
+CMD ["node", "src/index.js"]

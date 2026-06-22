@@ -1,14 +1,13 @@
 services:
   app:
     build: .
-    container_name: bun-app
+    container_name: node-app
     restart: unless-stopped
     env_file:
       - .env
     expose:
       - '9001'
-    command: >
-      sh -c "bun run src/index.js"
+    command: sh -c "node src/index.js"
     depends_on:
       mongo-init:
         condition: service_completed_successfully
