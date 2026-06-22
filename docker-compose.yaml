@@ -43,7 +43,7 @@ services:
     image: mongo:7
     container_name: mongodb
     restart: unless-stopped
-    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all']
+    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all', '--keyFile', '/etc/mongo-keyfile']
     environment:
       MONGO_INITDB_ROOT_USERNAME: mongo-root
       MONGO_INITDB_ROOT_PASSWORD: BeekeepingOutingElapsesRadioed
@@ -52,6 +52,7 @@ services:
       - '127.0.0.1:27017:27017'
     volumes:
       - mongodb-data:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
     networks:
       - app-network
     healthcheck:
@@ -70,6 +71,8 @@ services:
     networks:
       - app-network
     restart: 'no'
+    volumes:
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
     entrypoint: >
       bash -c "
       echo 'Initializing replica set...' &&

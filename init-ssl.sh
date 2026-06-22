@@ -19,6 +19,14 @@ mkdir -p ./certbot/conf
 chown -R root:root ./certbot
 chmod -R 755 ./certbot
 
+# Generate mongo keyfile if it doesn't exist
+if [ ! -f ./mongo-keyfile ]; then
+  echo "Generating MongoDB keyfile..."
+  openssl rand -base64 756 > ./mongo-keyfile
+  chmod 400 ./mongo-keyfile
+  echo "MongoDB keyfile created."
+fi
+
 # Writes the final HTTPS reverse-proxy config for the Node app
 write_https_config() {
 cat > ./nginx/conf.d/app.conf << NGINXEOF
