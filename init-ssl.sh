@@ -11,13 +11,12 @@ echo "=== Starting SSL setup for $DOMAIN ==="
 mkdir -p ./nginx/conf.d
 mkdir -p ./certbot/www/.well-known/acme-challenge
 mkdir -p ./certbot/conf
-sudo chown -R ubuntu:ubuntu ./certbot
 chmod -R 755 ./certbot
 
 # ─────────────────────────────────────────────────────────────
 # CASE 1: Certificate already exists → just redeploy app stack
 # ─────────────────────────────────────────────────────────────
-if sudo test -f "$CERT_PATH"; then
+if test -f "$CERT_PATH"; then
   echo "Certificate already exists — skipping SSL generation."
   echo "Redeploying updated app stack..."
 
@@ -89,14 +88,13 @@ docker run --rm \
   -d "$DOMAIN"
 
 # Fix ownership
-sudo chown -R ubuntu:ubuntu ./certbot
 chmod -R 755 ./certbot
 sleep 2
 
 # Verify certificate was actually created
-if ! sudo test -f "$CERT_PATH"; then
+if ! test -f "$CERT_PATH"; then
   echo "ERROR: Certificate not found at $CERT_PATH after certbot run!"
-  sudo ls -la ./certbot/conf/live/ 2>/dev/null || echo "live/ folder does not exist"
+  ls -la ./certbot/conf/live/ 2>/dev/null || echo "live/ folder does not exist"
   docker logs nginx
   exit 1
 fi
