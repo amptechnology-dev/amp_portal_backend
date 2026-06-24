@@ -1,0 +1,99 @@
+services:
+  app:
+    build: .
+    container_name: node-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    expose:
+      - '9001'
+    command: sh -c "node src/index.js"
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    depends_on:
+      - app
+    networks:
+      - app-network
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet --webroot --webroot-path=/var/www/certbot; sleep 12h & wait $${!}; done'"
+    networks:
+      - app-network
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    restart: unless-stopped
+    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all', '--keyFile', '/etc/mongo-keyfile']
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo-root
+      MONGO_INITDB_ROOT_PASSWORD: BeekeepingOutingElapsesRadioed
+      MONGO_INITDB_DATABASE: office-management
+    ports:
+      - '0.0.0.0:27017:27017'
+    volumes:
+      - mongodb-data:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ['CMD', 'mongosh', '-u', 'mongo-root', '-p', 'BeekeepingOutingElapsesRadioed', '--authenticationDatabase', 'admin', '--eval', "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  mongo-init:
+    image: mongo:7
+    container_name: mongo-init
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: 'no'
+    volumes:
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
+    entrypoint: >
+      bash -c "
+      echo 'Initializing replica set...' &&
+      sleep 5 &&
+      mongosh mongodb:27017 -u mongo-root -p BeekeepingOutingElapsesRadioed --authenticationDatabase admin --eval '
+        try {
+          rs.status();
+          print(\"Replica set already initialized\");
+        } catch (e) {
+          rs.initiate({
+            _id: \"rs0\",
+            members: [{ _id: 0, host: \"mongodb:27017\" }]
+          });
+          print(\"Replica set initialized\");
+        }
+      '
+      "
+
+volumes:
+  mongodb-data:
+
+networks:
+  app-network:
+    driver: bridge
