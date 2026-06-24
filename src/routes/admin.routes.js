@@ -12,6 +12,7 @@ import {
   editUser,
   resetPassword,
   deleteUser,
+  registerAdmin,
   Login,
   Logout,
   editSectionHeaders,
@@ -25,6 +26,7 @@ import { upload } from "../middlewares/imageUpload.middleware.js";
 router.get("/", (req, res) => {
   res.redirect("/admin/offices");
 });
+router.post("/register-admin", registerAdmin);
 router.get("/login", (req, res) => {
   res.render("pages/login", { error: null });
 });

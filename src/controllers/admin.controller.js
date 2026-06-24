@@ -4,6 +4,50 @@ import { Heading } from "../models/heading.model.js";
 import deleteFile from "../utils/DeleteFile.js";
 import jwt from "jsonwebtoken";
 
+export const registerAdmin = async (req, res) => {
+  try {
+    const { username, email, fullName, password, office, avatar } = req.body;
+
+    if (!username || !email || !fullName || !password || !office) {
+      return res.status(400).json({
+        success: false,
+        message: "All required fields are mandatory",
+      });
+    }
+    const existingUser = await User.findOne({
+      $or: [{ username: username.toLowerCase() }, { email: email.toLowerCase() }],
+    });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "Username or email already exists",
+      });
+    }
+    const admin = await User.create({
+      username: username.toLowerCase(),
+      email: email.toLowerCase(),
+      fullName,
+      password,
+      office,
+      avatar,
+      isAdmin: true,
+      isActive: true,
+      level: 999,
+    });
+    return res.status(201).json({
+      success: true,
+      message: "Admin created successfully",
+      data: admin,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
 export const Login = async (req, res) => {
   try {
     const user = await User.findOne({ username: req.body.username });
@@ -12,7 +56,7 @@ export const Login = async (req, res) => {
       console.log("User not found or inactive");
       return res.redirect("/admin/login");
     }
-    const isPasswordCorrect = user.isPasswordCorrect(req.body.password);
+    const isPasswordCorrect = await user.isPasswordCorrect(req.body.password);
     if (!isPasswordCorrect) {
       console.log("Incorrect password");
       return res.redirect("/admin/login");

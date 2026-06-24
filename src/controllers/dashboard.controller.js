@@ -838,43 +838,98 @@ export const listBanks = asyncHandler(async (req, res) => {
 
 //TODO: R2 implementation
 export const addBank = asyncHandler(async (req, res) => {
-  req.body.edited_by = req.user._id;
-  req.body.office = req.user?.office;
-
-  if (req.file) {
-    req.body.qr = req.file.path;
-  }
-
   try {
+    req.body.edited_by = req.user._id;
+    req.body.office = req.user?.office;
+
+    // QR Upload
+    if (req.file) {
+      const filename = `office-management/bank-qr-${req.user.office}-${Date.now()}${path.extname(
+        req.file.originalname
+      )}`;
+
+      const fileUrl = await uploadToR2(
+        req.file.buffer,
+        filename,
+        req.file.mimetype
+      );
+
+      req.body.qr = fileUrl;
+    }
+
     const newBank = await Bank.create(req.body);
-    return res.status(201).json(new ApiResponse(201, newBank, "Activity Added Successfully!"));
+
+    return res
+      .status(201)
+      .json(new ApiResponse(201, newBank, "Bank Added Successfully!"));
   } catch (error) {
-    req.file && deleteFile(req.file.path);
-    return res.status(500).json(new ApiError(500, "Internal Server Error", error.message));
+    return res
+      .status(500)
+      .json(new ApiError(500, "Internal Server Error", error.message));
   }
 });
 
 //TODO: R2 implementation
 export const editBank = asyncHandler(async (req, res) => {
-  req.body.edited_by = req.user._id;
   try {
-    const oldBank = await Bank.findOne({ _id: req.params.id, office: req.user?.office });
+    req.body.edited_by = req.user._id;
+
+    const oldBank = await Bank.findOne({
+      _id: req.params.id,
+      office: req.user?.office,
+    });
 
     if (!oldBank) {
-      return res.status(404).json(new ApiError(404, "Not Found", "Bank not found"));
+      return res
+        .status(404)
+        .json(new ApiError(404, "Not Found", "Bank not found"));
     }
 
+    let oldQrUrl = oldBank.qr;
+
+    // New QR uploaded
     if (req.file) {
-      req.body.qr = req.file.path;
+      const filename = `office-management/bank-qr-${req.user.office}-${Date.now()}${path.extname(
+        req.file.originalname
+      )}`;
+
+      const fileUrl = await uploadToR2(
+        req.file.buffer,
+        filename,
+        req.file.mimetype
+      );
+
+      req.body.qr = fileUrl;
     }
 
-    const newBank = await Bank.findOneAndUpdate(oldBank._id, req.body, { new: true });
-    req.file && deleteFile(oldBank.qr);
+    const updatedBank = await Bank.findByIdAndUpdate(
+      oldBank._id,
+      req.body,
+      { new: true }
+    );
 
-    return res.json(new ApiResponse(200, newBank, "Bank Updated Successfully!"));
+    // Delete old QR only if a new QR was uploaded
+    if (req.file && oldQrUrl) {
+      await deleteFile(oldQrUrl);
+    }
+
+    return res.json(
+      new ApiResponse(
+        200,
+        updatedBank,
+        "Bank Updated Successfully!"
+      )
+    );
   } catch (error) {
-    req.file && deleteFile(req.file.path);
-    return res.status(500).json(new ApiError(500, "Internal Server Error", error.message));
+    return res
+      .status(500)
+      .json(
+        new ApiError(
+          500,
+          "Internal Server Error",
+          error.message
+        )
+      );
   }
 });
 
