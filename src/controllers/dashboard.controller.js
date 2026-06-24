@@ -53,34 +53,92 @@ export const addOffice = asyncHandler((req, res) => {
 });
 
 //TODO: R2 implementation
+
 export const updateOffice = asyncHandler(async (req, res) => {
-  const oldOffice = await Office.findOne({ _id: req.user?.office, is_active: true });
+  const oldOffice = await Office.findOne({
+    _id: req.user?.office,
+    is_active: true,
+  });
+
   if (!oldOffice) {
-    // Deleting the uploaded file
-    for (const file in req.files) {
-      let filePath = req.files[file][0].path;
-      deleteFile(filePath);
-    }
-    return res.json(new ApiError(404, "Office not Found.", "Office not found or not Active."));
-  }
-  // Get the new file path if new files were uploaded
-  if (Object.entries(req.files).length > 0) {
-    //As req.files is an object
-    let { logo, logo_alt, notification_bg_iamge, activity_bg_iamge } = req.files;
-    // Checking Uploaded Files or Setting the old file path
-    logo_alt ? (req.body.logo_alt = logo_alt[0].path) : (req.body.logo_alt = oldOffice.logo_alt);
-    logo ? (req.body.logo = logo[0].path) : (req.body.logo = oldOffice.logo);
-    notification_bg_iamge ? (req.body.notification_bg_iamge = notification_bg_iamge[0].path) : (req.body.notification_bg_iamge = oldOffice.notification_bg_iamge);
-    activity_bg_iamge ? (req.body.activity_bg_iamge = activity_bg_iamge[0].path) : (req.body.activity_bg_iamge = oldOffice.activity_bg_iamge);
-  } else {
-    req.body.logo_alt = oldOffice.logo_alt;
-    req.body.logo = oldOffice.logo;
-    req.body.notification_bg_iamge = oldOffice.notification_bg_iamge;
-    req.body.activity_bg_iamge = oldOffice.activity_bg_iamge;
+    return res.status(404).json(
+      new ApiError(
+        404,
+        "Office not Found",
+        "Office not found or not Active."
+      )
+    );
   }
 
   try {
     req.body.edited_by = req.user?._id;
+
+    // Default old images
+    req.body.logo = oldOffice.logo;
+    req.body.logo_alt = oldOffice.logo_alt;
+    req.body.notification_bg_iamge = oldOffice.notification_bg_iamge;
+    req.body.activity_bg_iamge = oldOffice.activity_bg_iamge;
+
+    // Upload Logo
+    if (req.files?.logo?.[0]) {
+      const file = req.files.logo[0];
+
+      const filename = `office-management/logo-${oldOffice._id}-${Date.now()}${path.extname(
+        file.originalname
+      )}`;
+
+      req.body.logo = await uploadToR2(
+        file.buffer,
+        filename,
+        file.mimetype
+      );
+    }
+
+    // Upload Logo Alt
+    if (req.files?.logo_alt?.[0]) {
+      const file = req.files.logo_alt[0];
+
+      const filename = `office-management/logo-alt-${oldOffice._id}-${Date.now()}${path.extname(
+        file.originalname
+      )}`;
+
+      req.body.logo_alt = await uploadToR2(
+        file.buffer,
+        filename,
+        file.mimetype
+      );
+    }
+
+    // Upload Notification BG
+    if (req.files?.notification_bg_iamge?.[0]) {
+      const file = req.files.notification_bg_iamge[0];
+
+      const filename = `office-management/notification-bg-${oldOffice._id}-${Date.now()}${path.extname(
+        file.originalname
+      )}`;
+
+      req.body.notification_bg_iamge = await uploadToR2(
+        file.buffer,
+        filename,
+        file.mimetype
+      );
+    }
+
+    // Upload Activity BG
+    if (req.files?.activity_bg_iamge?.[0]) {
+      const file = req.files.activity_bg_iamge[0];
+
+      const filename = `office-management/activity-bg-${oldOffice._id}-${Date.now()}${path.extname(
+        file.originalname
+      )}`;
+
+      req.body.activity_bg_iamge = await uploadToR2(
+        file.buffer,
+        filename,
+        file.mimetype
+      );
+    }
+
     const updatedOffice = await Office.findByIdAndUpdate(
       req.user?.office,
       {
@@ -90,38 +148,62 @@ export const updateOffice = asyncHandler(async (req, res) => {
         whatsapp: req.body.whatsapp,
         landline: req.body.landline,
         email: req.body.email,
-        // banner: req.body.banner,
+
         logo: req.body.logo,
         logo_alt: req.body.logo_alt,
         notification_bg_iamge: req.body.notification_bg_iamge,
         activity_bg_iamge: req.body.activity_bg_iamge,
+
         edited_by: req.body.edited_by,
       },
       { new: true }
     );
-    // Delete the old files only if new files were uploaded
-    if (req.files) {
-      if (req.files.logo_alt && oldOffice.logo_alt) {
-        deleteFile(oldOffice.logo_alt);
-      }
-      if (req.files.logo && oldOffice.logo) {
-        deleteFile(oldOffice.logo);
-      }
-      if (req.files.notification_bg_iamge && oldOffice.notification_bg_iamge) {
-        deleteFile(oldOffice.notification_bg_iamge);
-      }
-      if (req.files.activity_bg_iamge && oldOffice.activity_bg_iamge) {
-        deleteFile(oldOffice.activity_bg_iamge);
-      }
+
+    // Delete old files only when new file uploaded
+
+    if (
+      req.files?.logo?.[0] &&
+      oldOffice.logo
+    ) {
+      await deleteFile(oldOffice.logo);
     }
-    return res.json(new ApiResponse(200, updatedOffice, "Office data updated!"));
+
+    if (
+      req.files?.logo_alt?.[0] &&
+      oldOffice.logo_alt
+    ) {
+      await deleteFile(oldOffice.logo_alt);
+    }
+
+    if (
+      req.files?.notification_bg_iamge?.[0] &&
+      oldOffice.notification_bg_iamge
+    ) {
+      await deleteFile(oldOffice.notification_bg_iamge);
+    }
+
+    if (
+      req.files?.activity_bg_iamge?.[0] &&
+      oldOffice.activity_bg_iamge
+    ) {
+      await deleteFile(oldOffice.activity_bg_iamge);
+    }
+
+    return res.json(
+      new ApiResponse(
+        200,
+        updatedOffice,
+        "Office data updated successfully!"
+      )
+    );
   } catch (error) {
-    // Delete the uploaded files
-    for (const file in req.files) {
-      let filePath = req.files[file][0].path;
-      deleteFile(filePath);
-    }
-    return res.status(500).json(new ApiError(500, "Internal server error", error.message));
+    return res.status(500).json(
+      new ApiError(
+        500,
+        "Internal Server Error",
+        error.message
+      )
+    );
   }
 });
 
