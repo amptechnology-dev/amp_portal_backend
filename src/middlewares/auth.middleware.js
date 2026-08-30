@@ -72,3 +72,16 @@ export const adminAuth = asyncHandler(async (req, res, next) => {
     return res.redirect("/admin/login");
   }
 });
+
+export const verifyAdminJWT = asyncHandler(async (req, res, next) => {
+  const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+  if (!token) throw new ApiError(401, "Unauthorized Request");
+
+  const decodedData = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+  const user = await User.findOne({ _id: decodedData?._id, isAdmin: true }).select("-password -refreshToken");
+
+  if (!user) throw new ApiError(401, "Invalid Token or Not an Admin");
+
+  req.user = user;
+  next();
+});
