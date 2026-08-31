@@ -57,6 +57,7 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       certificate_no,
       issue_date,
       certificate_type: application.application_type,
+      issued_by: req.user._id, 
       remarks,
     });
   }

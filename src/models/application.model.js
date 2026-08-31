@@ -127,7 +127,7 @@ const applicationSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "completed"],
       default: "pending",
       index: true,
     },
@@ -147,7 +147,7 @@ const applicationSchema = new Schema(
 applicationSchema.virtual("certificate", {
   ref: "Certificate",
   localField: "_id",
-  foreignField: "application", 
+  foreignField: "application",
   justOne: true,
 });
 

@@ -14,9 +14,11 @@ import { Guideline } from "../models/guideline.model.js";
 import { Otp } from "../models/otp.model.js";
 import { sendSms } from "../utils/sendSms.js";
 import { sendApplicationSubmitMail } from "../utils/sendEmail.js";
+import { uploadToR2 } from "../utils/r2Uploader.js";
 import crypto from "crypto";
+import path from "path";
 
-// GET /apply/:type -> form er jonno dropdown/master data
+// GET /apply/:type
 export const getApplicationFormData = asyncHandler(async (req, res) => {
   const { type } = req.params;
   const officeId = req.office._id;
@@ -55,6 +57,21 @@ export const storeApplication = asyncHandler(async (req, res) => {
 
   const application_no = crypto.randomBytes(5).toString("hex").toUpperCase();
 
+  // Upload files to R2
+  const documentFile = req.files.document[0];
+  const taxReceiptFile = req.files.tax_receipt[0];
+
+  const documentUrl = await uploadToR2(
+    documentFile.buffer,
+    `office-management/applications/document-${Date.now()}${path.extname(documentFile.originalname)}`,
+    documentFile.mimetype
+  );
+  const taxReceiptUrl = await uploadToR2(
+    taxReceiptFile.buffer,
+    `office-management/applications/tax_receipt-${Date.now()}${path.extname(taxReceiptFile.originalname)}`,
+    taxReceiptFile.mimetype
+  );
+
   const application = await Application.create({
     office: req.office._id,
     application_no,
@@ -81,8 +98,8 @@ export const storeApplication = asyncHandler(async (req, res) => {
     marital_status: b.marital_status,
     yearly_income: b.yearly_income,
     id_type: b.id_type,
-    id_file: req.files.document[0].path,
-    tax_receipt: req.files.tax_receipt[0].path,
+    id_file: documentUrl,
+    tax_receipt: taxReceiptUrl,
     id_no: b.id_no?.trim(),
   });
 
@@ -120,6 +137,26 @@ export const storeHeirship = asyncHandler(async (req, res) => {
 
   const application_no = crypto.randomUUID();
 
+  const documentFile = req.files.document[0];
+  const taxReceiptFile = req.files.tax_receipt[0];
+  const memberAuthFile = req.files.member_authorization[0];
+
+  const documentUrl = await uploadToR2(
+    documentFile.buffer,
+    `office-management/heirship/document-${Date.now()}${path.extname(documentFile.originalname)}`,
+    documentFile.mimetype
+  );
+  const taxReceiptUrl = await uploadToR2(
+    taxReceiptFile.buffer,
+    `office-management/heirship/tax_receipt-${Date.now()}${path.extname(taxReceiptFile.originalname)}`,
+    taxReceiptFile.mimetype
+  );
+  const memberAuthUrl = await uploadToR2(
+    memberAuthFile.buffer,
+    `office-management/heirship/member_auth-${Date.now()}${path.extname(memberAuthFile.originalname)}`,
+    memberAuthFile.mimetype
+  );
+
   const heirship = await Heirship.create({
     office: req.office._id,
     application_no,
@@ -141,13 +178,12 @@ export const storeHeirship = asyncHandler(async (req, res) => {
     state: b.state,
     religion: b.religion,
     id_type: b.id_type,
-    id_file: req.files.document[0].path,
-    tax_receipt: req.files.tax_receipt[0].path,
-    member_authorization: req.files.member_authorization[0].path,
+    id_file: documentUrl,
+    tax_receipt: taxReceiptUrl,
+    member_authorization: memberAuthUrl,
     id_no: b.id_no?.trim(),
   });
 
-  // Successors — application_no field e Heirship._id rakha hocche (PHP logic onujayi)
   const names = [].concat(b.successor_name || []);
   const guardians = [].concat(b.successor_gurdian || []);
   const relations = [].concat(b.successor_relationship || []);

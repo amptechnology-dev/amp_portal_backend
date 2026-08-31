@@ -17,8 +17,8 @@ const heirshipSchema = new Schema(
     },
     application_type: {
       type: String,
-      required: true,
       trim: true,
+      default: "heirship",
     },
     title: {
       type: String,
@@ -114,7 +114,7 @@ const heirshipSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "completed"],
       default: "pending",
       index: true,
     },

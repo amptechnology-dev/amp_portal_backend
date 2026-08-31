@@ -1,18 +1,8 @@
 import multer from "multer";
 import { ApiError } from "../utils/ApiError.js";
-import path from "path";
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "./public/uploads/documents");
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + "-" + Date.now() + Math.round(Math.random() * 1e9) + ext);
-  },
-});
+const storage = multer.memoryStorage();
 
-// PDF and Image file type validation
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
   if (allowedTypes.includes(file.mimetype)) {
@@ -25,5 +15,5 @@ const fileFilter = (req, file, cb) => {
 export const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 300 * 1024 }, 
+  limits: { fileSize: 300 * 1024 },
 });
