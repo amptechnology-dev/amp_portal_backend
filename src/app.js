@@ -49,9 +49,9 @@ app.use("/api/public", publicApiAuth, userFileDownloadRouter);
 app.use("/admin", adminRouter);
 
 // ---------- Admin JSON APIs — needs admin JWT (Bearer token / accessToken cookie) ----------
-app.use("/api/admin/application", verifyAdminJWT, applicationAdminRouter);
-app.use("/api/admin/application", verifyAdminJWT, adminCertificateRouter);
-app.use("/api/admin/manage_data", verifyAdminJWT, masterDataRouter);
+app.use("/api/dashboard/application", verifyJWT, applicationAdminRouter);
+app.use("/api/dashboard/application", verifyJWT, adminCertificateRouter);
+app.use("/api/dashboard/manage_data", verifyJWT, masterDataRouter);
 
 // http://localhost:8000/api/v1/users/register
 

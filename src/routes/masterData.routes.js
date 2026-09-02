@@ -10,7 +10,6 @@ import { OldDataType } from "../models/oldDataType.model.js";
 import { adminAuth } from "../middlewares/auth.middleware.js";
 
 const router = Router();
-router.use(adminAuth);
 
 const registerCrud = (path, Model, label) => {
   const c = createMasterDataController(Model, label);

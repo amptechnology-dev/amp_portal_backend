@@ -5,12 +5,11 @@ import { upload } from "../middlewares/documentUpload.middleware.js";
 import { upload as imageUpload } from "../middlewares/imageUpload.middleware.js";
 
 const router = Router();
-router.use(adminAuth);
 
 router.get("/dashboard", ctrl.dashboardStats);
 
-router.get("/application", ctrl.listApplications);
-router.get("/application/view/:id", ctrl.viewApplication);
+router.get("/applicationnew", ctrl.listApplications);
+router.get("/view/:id", ctrl.viewApplication);
 router.post("/application/reject", ctrl.rejectApplication);
 
 router.get("/guidelines", ctrl.listGuidelines);

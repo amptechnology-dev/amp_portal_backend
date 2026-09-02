@@ -2,12 +2,22 @@ import { Router } from "express";
 import * as publicController from "../controllers/public.controller.js";
 import { upload as pdfUpload } from "../middlewares/pdfUpload.middleware.js";
 import { upload as shareupload } from "../middlewares/sharedMulter.js";
+import { createPublicMasterDataController } from "../controllers/publicMasterData.controller.js";
+import { Village } from "../models/village.model.js";
+import { PostOfficeMaster } from "../models/postOfficeMaster.model.js";
+import { PoliceStation } from "../models/policeStation.model.js";
+import { SansadMaster } from "../models/sansadMaster.model.js";
+import { DocumentType } from "../models/documentType.model.js";
 
 const router = Router();
 router.route("/ping").get((req, res) => {
   let start = Date.now();
   res.send("Pong " + (Date.now() - start) + "ms");
 });
+const registerPublicMaster = (path, Model, label) => {
+  const c = createPublicMasterDataController(Model, label);
+  router.route(`/${path}`).get(c.list);
+};
 router.route("/officeData").get(publicController.getOfficeDetails);
 router.route("/social").get(publicController.getSocials);
 router.route("/gallery").get(publicController.getGallery);
@@ -35,5 +45,10 @@ router.route("/recruitment").post(shareupload.fields([
   ]),
   publicController.postRecruitment
 );
+registerPublicMaster("village", Village, "Village");
+registerPublicMaster("post_office", PostOfficeMaster, "Post Office");
+registerPublicMaster("police_station", PoliceStation, "Police Station");
+registerPublicMaster("sansad", SansadMaster, "Sansad");
+registerPublicMaster("id_type", DocumentType, "Document Type");
 
 export default router;

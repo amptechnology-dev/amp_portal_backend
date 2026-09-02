@@ -63,10 +63,17 @@ export const listApplications = asyncHandler(async (req, res) => {
 // GET /admin/application/view/:id  (id = application_no)
 export const viewApplication = asyncHandler(async (req, res) => {
   const application =
-    (await Application.findOne({ application_no: req.params.id }).populate("villageData postOffice policeStation sansadData documentType")) ||
-    (await Heirship.findOne({ application_no: req.params.id }).populate("villageData postOffice policeStation sansadData documentType successor"));
+    (await Application.findOne({ application_no: req.params.id }).populate(
+      "village post_office police_station sansad id_type"
+    )) ||
+    (await Heirship.findOne({ application_no: req.params.id }).populate(
+      "village post_office police_station sansad id_type successor"
+    ));
 
-  if (!application) return res.status(404).json(new ApiError(404, "Application not found."));
+  if (!application) {
+    return res.status(404).json(new ApiError(404, "Application not found."));
+  }
+
   return res.json(new ApiResponse(200, application, "Application fetched."));
 });
 
