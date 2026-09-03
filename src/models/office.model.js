@@ -56,6 +56,11 @@ const officeSchema = new Schema(
       default: [],
     },
     logo: String,
+    pradhan_name: { type: String },
+    pradhan_mobile: { type: String },
+    upa_pradhan_name: { type: String },
+    upa_pradhan_mobile: { type: String },
+    office_no_prefix: { type: String },
     logo_alt: String,
     address_url: String,
     enabled_services: {

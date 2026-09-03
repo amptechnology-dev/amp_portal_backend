@@ -25,6 +25,7 @@ router.route("/save_heirship").post(
 );
 
 router.route("/check_status").post(applicationController.getApplicationStatus);
+router.route("/generate_certificate").post(applicationController.generateCertificate)
 router.route("/send-otp").post(applicationController.sendOtp);
 router.route("/verify-otp").post(applicationController.verifyOtp);
 

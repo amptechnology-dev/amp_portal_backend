@@ -28,6 +28,8 @@
     "mongoose-aggregate-paginate-v2": "^1.0.7",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^9.0.6",
+    "number-to-words": "^1.2.4",
+    "puppeteer": "^25.9.0",
     "qrcode": "^1.5.4",
     "to-words": "^7.0.0",
     "yup": "^1.4.0"

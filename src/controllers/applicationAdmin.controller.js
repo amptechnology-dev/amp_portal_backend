@@ -10,6 +10,8 @@ import { Download } from "../models/download.model.js";
 import { OldData } from "../models/oldData.model.js";
 import { OldDataType } from "../models/oldDataType.model.js";
 import { sendSms } from "../utils/sendSms.js";
+import { uploadToR2 } from "../utils/r2Uploader.js";
+import {deleteFromR2} from "../utils/r2Uploader.js"
 import fs from "fs";
 import path from "path";
 
@@ -53,11 +55,49 @@ export const listApplications = asyncHandler(async (req, res) => {
   if (status && status !== "all") filter.status = status;
 
   const [applications, heirships] = await Promise.all([
-    Application.find(filter).sort("-createdAt"),
-    Heirship.find(filter).sort("-createdAt"),
+    Application.find(filter).sort("-createdAt").lean(),
+    Heirship.find(filter).sort("-createdAt").lean(),
   ]);
 
-  return res.json(new ApiResponse(200, [...applications, ...heirships], "Applications fetched."));
+  let combined = [...applications, ...heirships];
+
+  // Attach certificate details for completed applications
+  if (!status || status === "all" || status === "completed") {
+    const applicationNos = combined
+      .filter((app) => app.status === "completed")
+      .map((app) => app.application_no);
+
+    if (applicationNos.length > 0) {
+      const certificates = await Certificate.find({
+        office: officeId,
+        application_no: { $in: applicationNos },
+      })
+        .populate("issued_by", "name")
+        .lean();
+
+      const certMap = certificates.reduce((acc, cert) => {
+        acc[cert.application_no] = cert;
+        return acc;
+      }, {});
+
+      combined = combined.map((app) => {
+        const cert = certMap[app.application_no];
+        if (!cert) return app;
+        return {
+          ...app,
+          certificate_no: cert.certificate_no,
+          certificate_type: cert.certificate_type,
+          issue_date: cert.issue_date,
+          issued_by: cert.issued_by?.name || null,
+          remarks: cert.remarks ?? app.remarks,
+        };
+      });
+    }
+  }
+
+  combined.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  return res.json(new ApiResponse(200, combined, "Applications fetched."));
 });
 
 // GET /admin/application/view/:id  (id = application_no)
@@ -139,16 +179,28 @@ export const listSignatures = asyncHandler(async (req, res) => {
 
 export const updateSignature = asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json(new ApiError(400, "Signature image is required."));
+  if (!req.body.person?.trim())
+    return res.status(400).json(new ApiError(400, "Person field is required."));
 
   const oldSignature = await Signature.findOne({ office: req.user.office, person: req.body.person });
 
-  const signature = await Signature.findOneAndUpdate(
-    { office: req.user.office, person: req.body.person },
-    { image: req.file.path },
-    { upsert: true, new: true }
+  const signatureUrl = await uploadToR2(
+    req.file.buffer,
+    `office-management/signatures/signature-${Date.now()}${path.extname(req.file.originalname)}`,
+    req.file.mimetype
   );
 
-  if (oldSignature?.image && fs.existsSync(oldSignature.image)) fs.unlinkSync(oldSignature.image);
+  const signature = await Signature.findOneAndUpdate(
+    { office: req.user.office, person: req.body.person },
+    { image: signatureUrl },
+    { upsert: true, new: true, runValidators: true }
+  );
+
+  if (oldSignature?.image) {
+    await deleteFromR2(oldSignature.image).catch((err) =>
+      console.error("Failed to delete old signature from R2:", err.message)
+    );
+  }
 
   return res.json(new ApiResponse(200, signature, "Signature updated successfully!"));
 });
@@ -161,9 +213,20 @@ export const listDownloads = asyncHandler(async (req, res) => {
 
 export const addDownload = asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json(new ApiError(400, "File is required."));
-  if (!req.body.title) return res.status(400).json(new ApiError(400, "Title is required."));
+  if (!req.body.title?.trim()) return res.status(400).json(new ApiError(400, "Title is required."));
 
-  const file = await Download.create({ office: req.user.office, title: req.body.title, file: req.file.path });
+  const fileUrl = await uploadToR2(
+    req.file.buffer,
+    `office-management/downloads/download-${Date.now()}${path.extname(req.file.originalname)}`,
+    req.file.mimetype
+  );
+
+  const file = await Download.create({
+    office: req.user.office,
+    title: req.body.title.trim(),
+    file: fileUrl,
+  });
+
   return res.status(201).json(new ApiResponse(201, file, "File uploaded successfully."));
 });
 

@@ -47,6 +47,7 @@ const certificateSchema = new Schema(
       type: String,
       trim: true,
     },
+    certificate_file: { type: String },
   },
   { timestamps: true }
 );

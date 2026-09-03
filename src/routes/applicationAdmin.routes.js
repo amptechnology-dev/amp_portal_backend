@@ -18,7 +18,7 @@ router.post("/guidelines/update", ctrl.updateGuideline);
 router.delete("/guidelines/delete/:id", ctrl.deleteGuideline);
 
 router.get("/signatures", ctrl.listSignatures);
-router.post("/signatures/update", imageUpload.single("signature"), ctrl.updateSignature);
+router.post("/signatures/update", upload.single("signature"), ctrl.updateSignature);
 
 router.get("/downloads", ctrl.listDownloads);
 router.post("/downloads/add", upload.single("file"), ctrl.addDownload);
