@@ -53,27 +53,64 @@ const escapeHtml = (str = "") =>
       })[c]
   );
 
+// ---------- Guardian relation helper (S/O, D/O, W/O) ----------
+const buildGuardianRelation = (guardian_type, gender) => {
+  if (!guardian_type) return "";
+  const map = {
+    Father: gender === "Female" ? "D/O" : "S/O",
+    Husband: "W/O",
+    Mother: gender === "Female" ? "D/O" : "S/O",
+  };
+  return map[guardian_type] || guardian_type;
+};
+
 // ---------- Render certificate body (replace {{placeholders}}) ----------
 export const renderCertificateBody = (templateBody, data) => {
+  const { application, office } = data;
+
   const values = {
-    name: data.application.name,
-    guardian_name: data.application.guardian_name,
+    // Personal
+    name: application.name,
+    father_name: application.guardian_name,
+    guardian_name: application.guardian_name,
+    guardian_relation: buildGuardianRelation(application.guardian_type, application.gender),
+    id_no: application.id_no,
+    bpl_number: application.id_no, // NOTE: assumption — no dedicated bpl_number field yet.
+                                     // Add one to Application schema if this is wrong.
+
+    // Address / jurisdiction
     village: data.village_name,
+    village_name: data.village_name,
     post_office: data.post_office_name,
+    post_office_name: data.post_office_name,
     police_station: data.police_station_name,
-    district: data.application.district,
+    police_station_name: data.police_station_name,
+    district: application.district,
+    district_name: application.district,
+    jurisdiction: application.gp || office?.block || "", // NOTE: assumption — mapped to gp/block.
+
     sansad: data.sansad_name,
-    office_name: data.office.name,
-    id_no: data.application.id_no,
-    yearly_income: data.application.yearly_income,
-    yearly_income_words: `Rupees ${numberToWords(data.application.yearly_income)}`,
-    pradhan_name: data.office.pradhan_name,
-    upa_pradhan_name: data.office.upa_pradhan_name,
+    sansad_name: data.sansad_name,
+
+    // Office
+    office_name: office?.name,
+    pradhan_name: office?.pradhan_name,
+    upa_pradhan_name: office?.upa_pradhan_name,
+
+    // Financial
+    yearly_income: application.yearly_income,
+    yearly_income_words: numberToWords(application.yearly_income),
+
+    // Meta
     date: new Date().toLocaleDateString("en-IN"),
   };
 
   return templateBody.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-    return values[key] !== undefined ? values[key] : match;
+    if (values[key] === undefined || values[key] === null || values[key] === "") {
+      console.warn(`[renderCertificateBody] Unresolved placeholder: {{${key}}}`);
+      return "";
+    }
+    return values[key];
   });
 };
 
@@ -123,7 +160,6 @@ export const renderCertificatePDF = async ({
       color: #1a1a1a;
       position: relative;
     }
-
     .watermark {
       position: absolute;
       top: 480px;
@@ -135,9 +171,7 @@ export const renderCertificatePDF = async ({
       z-index: 0;
     }
     .watermark img { width: 100%; height: 100%; object-fit: contain; }
-
     .content { position: relative; z-index: 1; }
-
     .header { text-align: center; margin-bottom: 4px; }
     .logo {
       width: 72px; height: 72px; border-radius: 50%;
@@ -149,28 +183,21 @@ export const renderCertificatePDF = async ({
     .office-of { letter-spacing: 3px; font-size: 12px; font-weight: bold; color: #2b3a67; }
     .office-name { font-size: 36px; font-weight: 800; color: #2f7fc1; margin: 2px 0; }
     .office-sub { font-size: 17px; font-weight: 600; color: #222; margin-bottom: 8px; }
-
     .divider { border: none; border-top: 2px solid #7d9cc4; margin: 4px 0 16px; }
     .bottom-divider { border: none; border-top: 2px solid #7d9cc4; margin-top: 24px; }
-
     .officials { display: flex; justify-content: space-between; font-size: 13px; color: #2f7fc1; margin-bottom: 18px; }
     .officials .col.right { text-align: right; }
     .officials .name { font-weight: bold; }
     .officials .role { color: #2f7fc1; }
     .officials .phone { color: #2f7fc1; }
-
     .meta { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: bold; color: #111; margin-bottom: 26px; }
-
     .cert-title { text-align: center; font-size: 23px; font-weight: bold; color: #2f7fc1; margin-bottom: 2px; }
     .cert-subtitle { text-align: center; font-size: 19px; font-weight: bold; color: #2f7fc1; margin-bottom: 30px; }
-
     .body-text { font-size: 14.5px; line-height: 2; text-align: justify; margin-bottom: 45px; }
-
     .signature-block { display: flex; justify-content: flex-end; margin-bottom: 60px; }
     .signature-block .sig-wrap { text-align: center; }
     .signature-block img.sig-img { height: 55px; object-fit: contain; margin-bottom: 2px; }
     .signature-block .sig-line { border-top: 1px solid #333; width: 190px; margin-top: 4px; padding-top: 4px; font-weight: bold; font-size: 13px; text-align: center; }
-
     .footer { display: flex; justify-content: flex-start; }
     .footer img { width: 95px; height: 95px; }
   </style>
@@ -179,7 +206,6 @@ export const renderCertificatePDF = async ({
     <div class="watermark">
       ${office?.logo ? `<img src="${office.logo}" />` : ""}
     </div>
-
     <div class="content">
       <div class="header">
         <div class="logo">${office?.logo ? `<img src="${office.logo}" />` : ""}</div>
@@ -188,7 +214,6 @@ export const renderCertificatePDF = async ({
         <div class="office-sub">${escapeHtml(office?.area_name || "")}</div>
       </div>
       <hr class="divider" />
-
       <div class="officials">
         <div class="col">
           <div class="name">${escapeHtml(office?.pradhan_name)}</div>
@@ -201,24 +226,19 @@ export const renderCertificatePDF = async ({
           <div class="phone">${escapeHtml(office?.upa_pradhan_mobile || "")}</div>
         </div>
       </div>
-
       <div class="meta">
         <div>No: ${escapeHtml(certificate_no)}</div>
         <div>Date: ${dateStr}</div>
       </div>
-
       <div class="cert-title">${escapeHtml(title)}</div>
       <div class="cert-subtitle">To Whom It May Concern</div>
-
       <div class="body-text">${bodyHtml}</div>
-
       <div class="signature-block">
         <div class="sig-wrap">
           ${signatureUrl ? `<img class="sig-img" src="${signatureUrl}" />` : `<div style="height:55px"></div>`}
           <div class="sig-line">Pradhan</div>
         </div>
       </div>
-
       <div class="footer">
         <img src="${qrDataUrl}" />
       </div>

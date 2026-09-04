@@ -5,8 +5,8 @@ import { Application } from "../models/application.model.js";
 import { Heirship } from "../models/heirship.model.js";
 import { Successor } from "../models/successor.model.js";
 import { Office } from "../models/office.model.js";
-import {Certificate} from "../models/certificate.model.js";
-import {CertificateTemplate} from "../models/certificate_template.js"
+import { Certificate } from "../models/certificate.model.js";
+import { CertificateTemplate } from "../models/certificate_template.js";
 import { Village } from "../models/village.model.js";
 import { PostOfficeMaster } from "../models/postOfficeMaster.model.js";
 import { PoliceStation } from "../models/policeStation.model.js";
@@ -14,11 +14,11 @@ import { SansadMaster } from "../models/sansadMaster.model.js";
 import { MouzaMaster } from "../models/mouzaMaster.model.js";
 import { DocumentType } from "../models/documentType.model.js";
 import { Guideline } from "../models/guideline.model.js";
-import {Signature} from "../models/signature.model.js"
+import { Signature } from "../models/signature.model.js";
 import { Otp } from "../models/otp.model.js";
 import { sendSms } from "../utils/sendSms.js";
 import { sendApplicationSubmitMail } from "../utils/sendEmail.js";
-import {renderCertificateBody,renderCertificatePDF} from "../utils/renderCertificateBody.js"
+import { renderCertificateBody, renderCertificatePDF } from "../utils/renderCertificateBody.js";
 import { uploadToR2 } from "../utils/r2Uploader.js";
 import crypto from "crypto";
 import path from "path";
@@ -327,11 +327,7 @@ export const generateCertificate = asyncHandler(async (req, res) => {
     const officeId = req.office._id;
     const { application_no, mobile } = req.body;
 
-    console.log("=== GENERATE CERTIFICATE REQUEST ===");
-    console.log("office:", officeId, "application_no:", application_no, "mobile:", mobile);
-
     if (!application_no?.trim() || !mobile?.trim()) {
-      console.log("=== VALIDATION FAILED: missing application_no or mobile ===");
       return res.status(400).json(new ApiError(400, "Application No and Mobile are required."));
     }
 
@@ -339,63 +335,46 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       application_no: application_no.trim(),
       office: officeId,
     });
-    console.log("application found:", !!application);
 
     if (!application) {
-      console.log("=== APPLICATION NOT FOUND ===");
       return res.status(404).json(new ApiError(404, "Application not found. Please check your Application No."));
     }
 
-    console.log("db mobile:", application.mobile, "| input mobile:", mobile.trim());
     if (application.mobile !== mobile.trim()) {
-      console.log("=== MOBILE MISMATCH ===");
       return res.status(400).json(new ApiError(400, "Mobile number does not match our records."));
     }
 
-    console.log("application status:", application.status);
     if (application.status === "rejected") {
-      console.log("=== APPLICATION REJECTED ===");
       return res.status(400).json(new ApiError(400, "This application was rejected. Certificate not available."));
     }
     if (application.status !== "completed") {
-      console.log("=== APPLICATION NOT COMPLETED YET ===");
       return res.status(400).json(new ApiError(400, "Your certificate is not ready yet. Please check back later."));
     }
 
-    // ---- Case 1: already generated — fetch existing PDF and stream it back ----
+    // ---- Case 1: already generated — just return the existing CDN URL ----
+    // NOTE: removed the fetch-and-restream of the file from R2. It was pure
+    // overhead — proxying bytes through your API for a file that's already
+    // public on the CDN. Just hand back the URL.
     let certificate = await Certificate.findOne({ application_no: application_no.trim(), office: officeId });
-    console.log("existing certificate found:", !!certificate, certificate?.certificate_file || "no file");
 
     if (certificate?.certificate_file) {
-      console.log("=== FETCHING EXISTING CERTIFICATE FILE ===", certificate.certificate_file);
-      const fileRes = await fetch(certificate.certificate_file);
-      console.log("existing file fetch status:", fileRes.status);
-
-      if (!fileRes.ok) {
-        console.log("=== FAILED TO FETCH EXISTING CERTIFICATE FILE FROM R2 ===");
-        return res.status(502).json(new ApiError(502, "Failed to fetch existing certificate file."));
-      }
-      const arrayBuffer = await fileRes.arrayBuffer();
-      console.log("=== SENDING EXISTING PDF, size:", arrayBuffer.byteLength, "bytes ===");
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `inline; filename="${certificate.certificate_no}.pdf"`);
-      return res.send(Buffer.from(arrayBuffer));
+      return res.status(200).json(
+        new ApiResponse(200, {
+          certificate_url: certificate.certificate_file,
+          certificate_no: certificate.certificate_no,
+        }, "Certificate ready")
+      );
     }
 
     // ---- Case 2: not generated yet — generate now ----
-    console.log("=== NO EXISTING CERTIFICATE — GENERATING NEW ONE ===");
-
     const office = await Office.findById(officeId);
-    console.log("office found:", !!office);
 
     const template = await CertificateTemplate.findOne({
       office: officeId,
       certificate_type: application.application_type,
     });
-    console.log("template found:", !!template, "| certificate_type:", application.application_type);
 
     if (!template) {
-      console.log("=== NO TEMPLATE CONFIGURED ===");
       return res.status(400).json(new ApiError(400, "Certificate template not configured. Please contact the office."));
     }
 
@@ -405,12 +384,6 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       PoliceStation.findById(application.police_station),
       SansadMaster.findById(application.sansad),
     ]);
-    console.log("lookups resolved:", {
-      village: village?.name,
-      postOffice: postOffice?.name,
-      policeStation: policeStation?.name,
-      sansad: sansad?.name,
-    });
 
     const bodyText = renderCertificateBody(template.body, {
       application,
@@ -420,15 +393,11 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       police_station_name: policeStation?.name,
       sansad_name: sansad?.name,
     });
-    console.log("=== BODY TEXT RENDERED ===");
 
     const certificate_no = crypto.randomBytes(8).toString("hex").toUpperCase();
-    console.log("generated certificate_no:", certificate_no);
 
     const pradhanSignature = await Signature.findOne({ office: officeId, person: "pradhan" });
-    console.log("pradhan signature found:", !!pradhanSignature?.image);
 
-    console.log("=== RENDERING PDF ===");
     const pdfBuffer = await renderCertificatePDF({
       title: template.title,
       office,
@@ -436,15 +405,12 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       certificate_no,
       signatureUrl: pradhanSignature?.image,
     });
-    console.log("=== PDF RENDERED, size:", pdfBuffer.length, "bytes ===");
 
-    console.log("=== UPLOADING TO R2 ===");
     const certificateUrl = await uploadToR2(
       pdfBuffer,
       `office-management/certificates/certificate-${certificate_no}.pdf`,
       "application/pdf"
     );
-    console.log("=== UPLOADED TO R2:", certificateUrl, "===");
 
     certificate = await Certificate.create({
       office: officeId,
@@ -456,17 +422,14 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       issue_date: new Date(),
       certificate_file: certificateUrl,
     });
-    console.log("=== CERTIFICATE RECORD CREATED:", certificate._id, "===");
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${certificate_no}.pdf"`);
-    console.log("=== SENDING NEWLY GENERATED PDF ===");
-    return res.send(pdfBuffer);
+    return res.status(200).json(
+      new ApiResponse(200, {
+        certificate_url: certificateUrl,
+        certificate_no,
+      }, "Certificate generated")
+    );
   } catch (error) {
-    console.log("=== CATCH BLOCK HIT IN generateCertificate ===");
-    console.log("Error name:", error?.name);
-    console.log("Error message:", error?.message);
-    console.log("Error stack:", error?.stack);
     return res
       .status(500)
       .json(new ApiError(500, error?.message || "Failed to generate certificate. Please try again."));
