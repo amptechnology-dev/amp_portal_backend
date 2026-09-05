@@ -53,6 +53,8 @@ const escapeHtml = (str = "") =>
       })[c]
   );
 
+const formatDate = (d) => (d ? new Date(d).toLocaleDateString("en-IN") : "");
+
 // ---------- Guardian relation helper (S/O, D/O, W/O) ----------
 const buildGuardianRelation = (guardian_type, gender) => {
   if (!guardian_type) return "";
@@ -64,21 +66,56 @@ const buildGuardianRelation = (guardian_type, gender) => {
   return map[guardian_type] || guardian_type;
 };
 
+// ---------- Successor table (Heirship) ----------
+const SUCCESSOR_TABLE_TOKEN = "###SUCCESSOR_TABLE###";
+
+const buildSuccessorTableHtml = (successors = []) => {
+  if (!successors.length) return "";
+  const rows = successors
+    .map(
+      (s, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(s.name || "")}</td>
+        <td>${escapeHtml(s.relation || "")}</td>
+        <td>${escapeHtml(String(s.age ?? ""))}</td>
+        <td>${escapeHtml(s.address || "")}</td>
+      </tr>`
+    )
+    .join("");
+
+  return `
+  <table class="successor-table">
+    <thead>
+      <tr>
+        <th>Sl No</th>
+        <th>Name of Successor</th>
+        <th>Relation With Deceased</th>
+        <th>Age</th>
+        <th>Address of Successor</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+};
+
 // ---------- Render certificate body (replace {{placeholders}}) ----------
 export const renderCertificateBody = (templateBody, data) => {
-  const { application, office } = data;
+  const { application, office, successors = [] } = data;
 
   const values = {
-    // Personal
-    name: application.name,
+    // Personal (common)
+    name: application.name || application.owner_name,
     father_name: application.guardian_name,
     guardian_name: application.guardian_name,
     guardian_relation: buildGuardianRelation(application.guardian_type, application.gender),
     id_no: application.id_no,
-    bpl_number: application.id_no, // NOTE: assumption — no dedicated bpl_number field yet.
-                                     // Add one to Application schema if this is wrong.
+    bpl_number: application.id_no,
+    gender: application.gender,
+    caste: application.caste,
+    sub_caste: application.sub_caste,
 
-    // Address / jurisdiction
+    // Address / jurisdiction (common)
     village: data.village_name,
     village_name: data.village_name,
     post_office: data.post_office_name,
@@ -87,8 +124,7 @@ export const renderCertificateBody = (templateBody, data) => {
     police_station_name: data.police_station_name,
     district: application.district,
     district_name: application.district,
-    jurisdiction: application.gp || office?.block || "", // NOTE: assumption — mapped to gp/block.
-
+    jurisdiction: application.gp || office?.block || "",
     sansad: data.sansad_name,
     sansad_name: data.sansad_name,
 
@@ -100,6 +136,39 @@ export const renderCertificateBody = (templateBody, data) => {
     // Financial
     yearly_income: application.yearly_income,
     yearly_income_words: numberToWords(application.yearly_income),
+
+    // ---- Land NOC specific ----
+    dag_no: application.dag_no,
+    khatian_no: application.khatian_no,
+    jl_no: application.jl_no,
+    mouza: data.mouza_name,
+    land_area: application.land_area,
+    chatak: application.chatak,
+    sq_feet: application.sq_feet,
+    ward_sansad: data.sansad_name,
+    owner_name: application.owner_name,
+    relation_with: application.relation_with,
+    relation_with_name: application.relation_with_name,
+    from_land_type: application.from_land_type,
+    to_land_type: application.to_land_type,
+    land_used_as: application.land_used_as,
+
+    // ---- Burning specific ----
+    deceased_name: application.deceased_name,
+    memo_no: application.memo_no,
+    memo_date: formatDate(application.memo_date),
+    certificate_type_label: application.certificate_type,
+    resident_type: application.resident_type === "TENANT" ? "Tenant" : "Permanent Resident",
+    died_on: formatDate(application.died_on),
+    burnt_buried_on: formatDate(application.burnt_buried_on),
+    place: application.place,
+    pin_code: application.pin_code,
+    issued_to: application.issued_to,
+    relation_with_deceased: application.relation_with_deceased,
+
+    // ---- Heirship specific ----
+    deceased_date_of_death: formatDate(application.doe),
+    successor_table: successors.length ? SUCCESSOR_TABLE_TOKEN : "",
 
     // Meta
     date: new Date().toLocaleDateString("en-IN"),
@@ -133,6 +202,7 @@ export const renderCertificatePDF = async ({
   bodyText,
   certificate_no,
   signatureUrl,
+  successors = [],
   issue_date = new Date(),
 }) => {
   const qrDataUrl = await QRCode.toDataURL(certificate_no, { margin: 1, width: 160 });
@@ -143,7 +213,9 @@ export const renderCertificatePDF = async ({
     year: "numeric",
   });
 
-  const bodyHtml = escapeHtml(bodyText).replace(/\n/g, "<br/>");
+  let bodyHtml = escapeHtml(bodyText).replace(/\n/g, "<br/>");
+  // successor table token was inserted before escaping (plain text, no special chars), so replace after escape:
+  bodyHtml = bodyHtml.replace(SUCCESSOR_TABLE_TOKEN, buildSuccessorTableHtml(successors));
 
   const html = `
   <!DOCTYPE html>
@@ -194,6 +266,9 @@ export const renderCertificatePDF = async ({
     .cert-title { text-align: center; font-size: 23px; font-weight: bold; color: #2f7fc1; margin-bottom: 2px; }
     .cert-subtitle { text-align: center; font-size: 19px; font-weight: bold; color: #2f7fc1; margin-bottom: 30px; }
     .body-text { font-size: 14.5px; line-height: 2; text-align: justify; margin-bottom: 45px; }
+    .successor-table { width: 100%; border-collapse: collapse; margin: 18px 0 40px; font-size: 12.5px; }
+    .successor-table th, .successor-table td { border: 1px solid #444; padding: 6px 8px; text-align: left; }
+    .successor-table th { background: #f0f3f8; font-weight: bold; }
     .signature-block { display: flex; justify-content: flex-end; margin-bottom: 60px; }
     .signature-block .sig-wrap { text-align: center; }
     .signature-block img.sig-img { height: 55px; object-fit: contain; margin-bottom: 2px; }

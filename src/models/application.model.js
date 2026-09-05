@@ -125,6 +125,43 @@ const applicationSchema = new Schema(
       type: String,
       trim: true,
     },
+
+    // ---------- EWS / Applicant Master extension fields ----------
+    resident_type: {
+      type: String,
+      enum: ["PERMANENT_RESIDENT", "TENANT"],
+    },
+    owner_name: {
+      // Owner Name (If Tenant) — relevant only when resident_type = "TENANT"
+      type: String,
+      trim: true,
+    },
+    mouza: {
+      type: String,
+      trim: true,
+    },
+    pin_code: {
+      type: String,
+      trim: true,
+    },
+    voter_card_no: {
+      type: String,
+      trim: true,
+    },
+    aadhar_card_no: {
+      type: String,
+      trim: true,
+    },
+    pan_card_no: {
+      type: String,
+      trim: true,
+    },
+    ration_card_no: {
+      type: String,
+      trim: true,
+    },
+    // ---------------------------------------------------------------
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "completed"],

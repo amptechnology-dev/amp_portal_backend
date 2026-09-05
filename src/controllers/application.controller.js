@@ -15,8 +15,11 @@ import { MouzaMaster } from "../models/mouzaMaster.model.js";
 import { DocumentType } from "../models/documentType.model.js";
 import { Guideline } from "../models/guideline.model.js";
 import { Signature } from "../models/signature.model.js";
+import { LandNoc } from "../models/landNoc.model.js";
+import { Burning } from "../models/burning.model.js";
 import { Otp } from "../models/otp.model.js";
 import { sendSms } from "../utils/sendSms.js";
+import { HeirshipCertificate } from "../models/heirshipCertificate.model.js";
 import { sendApplicationSubmitMail } from "../utils/sendEmail.js";
 import { renderCertificateBody, renderCertificatePDF } from "../utils/renderCertificateBody.js";
 import { uploadToR2 } from "../utils/r2Uploader.js";
@@ -123,6 +126,14 @@ export const storeApplication = asyncHandler(async (req, res) => {
     id_file: documentUrl,
     tax_receipt: taxReceiptUrl,
     id_no: b.id_no?.trim(),
+    resident_type: b.resident_type,
+    owner_name: b.owner_name,
+    mouza: b.mouza,
+    pin_code: b.pin_code,
+    voter_card_no: b.voter_card_no,
+    aadhar_card_no: b.aadhar_card_no,
+    pan_card_no: b.pan_card_no,
+    ration_card_no: b.ration_card_no,
   });
 
   await sendApplicationSubmitMail({
@@ -248,12 +259,16 @@ export const storeHeirship = asyncHandler(async (req, res) => {
   return res.status(201).json(new ApiResponse(201, { application_no: heirship.application_no }, "Application Submitted!"));
 });
 
-// POST /check_status
+// POST /check_status  (MODIFIED — now checks LandNoc & Burning too)
 export const getApplicationStatus = asyncHandler(async (req, res) => {
   const { application_no } = req.body;
   if (!application_no) return res.status(400).json(new ApiError(400, "Application number is required"));
 
-  const application = (await Application.findOne({ application_no, office: req.office._id })) || (await Heirship.findOne({ application_no, office: req.office._id }));
+  const application =
+    (await Application.findOne({ application_no, office: req.office._id })) ||
+    (await Heirship.findOne({ application_no, office: req.office._id })) ||
+    (await LandNoc.findOne({ application_no, office: req.office._id })) ||
+    (await Burning.findOne({ application_no, office: req.office._id }));
 
   if (!application) return res.status(404).json(new ApiError(404, "Application not found."));
 
@@ -331,10 +346,22 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       return res.status(400).json(new ApiError(400, "Application No and Mobile are required."));
     }
 
-    const application = await Application.findOne({
-      application_no: application_no.trim(),
-      office: officeId,
-    });
+    const trimmedNo = application_no.trim();
+
+    let application = await Application.findOne({ application_no: trimmedNo, office: officeId });
+    let sourceType = "application";
+    if (!application) {
+      application = await Heirship.findOne({ application_no: trimmedNo, office: officeId });
+      sourceType = "heirship";
+    }
+    if (!application) {
+      application = await LandNoc.findOne({ application_no: trimmedNo, office: officeId });
+      sourceType = "land_noc";
+    }
+    if (!application) {
+      application = await Burning.findOne({ application_no: trimmedNo, office: officeId });
+      sourceType = "burning";
+    }
 
     if (!application) {
       return res.status(404).json(new ApiError(404, "Application not found. Please check your Application No."));
@@ -351,38 +378,50 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       return res.status(400).json(new ApiError(400, "Your certificate is not ready yet. Please check back later."));
     }
 
-    // ---- Case 1: already generated — just return the existing CDN URL ----
-    // NOTE: removed the fetch-and-restream of the file from R2. It was pure
-    // overhead — proxying bytes through your API for a file that's already
-    // public on the CDN. Just hand back the URL.
-    let certificate = await Certificate.findOne({ application_no: application_no.trim(), office: officeId });
+    // ---- Already generated — return existing CDN URL (all types, including heirship) ----
+    let certificate = await Certificate.findOne({ application_no: trimmedNo, office: officeId });
 
     if (certificate?.certificate_file) {
       return res.status(200).json(
-        new ApiResponse(200, {
-          certificate_url: certificate.certificate_file,
-          certificate_no: certificate.certificate_no,
-        }, "Certificate ready")
+        new ApiResponse(
+          200,
+          {
+            certificate_url: certificate.certificate_file,
+            certificate_no: certificate.certificate_no,
+          },
+          "Certificate ready"
+        )
       );
     }
 
-    // ---- Case 2: not generated yet — generate now ----
+    // ---- Not generated yet — generate now (Application / Heirship / LandNoc / Burning) ----
     const office = await Office.findById(officeId);
+
+    const certificateTypeKey =
+      sourceType === "burning"
+        ? (application.certificate_type || "burning").toLowerCase()
+        : sourceType === "land_noc"
+        ? "land_noc"
+        : sourceType === "heirship"
+        ? "heirship"
+        : application.application_type;
 
     const template = await CertificateTemplate.findOne({
       office: officeId,
-      certificate_type: application.application_type,
+      certificate_type: certificateTypeKey,
     });
 
     if (!template) {
       return res.status(400).json(new ApiError(400, "Certificate template not configured. Please contact the office."));
     }
 
-    const [village, postOffice, policeStation, sansad] = await Promise.all([
+    const [village, postOffice, policeStation, sansad, mouza, successors] = await Promise.all([
       Village.findById(application.village),
       PostOfficeMaster.findById(application.post_office),
-      PoliceStation.findById(application.police_station),
-      SansadMaster.findById(application.sansad),
+      PoliceStation.findById(application.police_station), // land_noc/burning/heirship-এ না থাকলে null-ই ফিরবে
+      SansadMaster.findById(application.sansad || application.ward_sansad),
+      MouzaMaster.findById(application.mouza),
+      sourceType === "heirship" ? Successor.find({ application_no: application._id }) : Promise.resolve([]),
     ]);
 
     const bodyText = renderCertificateBody(template.body, {
@@ -392,11 +431,17 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       post_office_name: postOffice?.name,
       police_station_name: policeStation?.name,
       sansad_name: sansad?.name,
+      mouza_name: mouza?.name,
+      successors,
     });
 
     const certificate_no = crypto.randomBytes(8).toString("hex").toUpperCase();
 
-    const pradhanSignature = await Signature.findOne({ office: officeId, person: "pradhan" });
+    // NOTE: DB তে person field "Pradhan" (capital P) হিসেবে save করা আছে — case-insensitive match
+    const pradhanSignature = await Signature.findOne({
+      office: officeId,
+      person: { $regex: /^pradhan$/i },
+    });
 
     const pdfBuffer = await renderCertificatePDF({
       title: template.title,
@@ -404,6 +449,7 @@ export const generateCertificate = asyncHandler(async (req, res) => {
       bodyText,
       certificate_no,
       signatureUrl: pradhanSignature?.image,
+      successors,
     });
 
     const certificateUrl = await uploadToR2(
@@ -414,25 +460,18 @@ export const generateCertificate = asyncHandler(async (req, res) => {
 
     certificate = await Certificate.create({
       office: officeId,
-      application: application._id,
-      application_no: application_no.trim(),
-      name: application.name,
+      application: sourceType === "application" ? application._id : undefined,
+      application_no: trimmedNo,
+      name: application.name || application.owner_name || application.deceased_name,
       certificate_no,
-      certificate_type: application.application_type,
+      certificate_type: certificateTypeKey,
       issue_date: new Date(),
       certificate_file: certificateUrl,
     });
 
-    return res.status(200).json(
-      new ApiResponse(200, {
-        certificate_url: certificateUrl,
-        certificate_no,
-      }, "Certificate generated")
-    );
+    return res.status(200).json(new ApiResponse(200, { certificate_url: certificateUrl, certificate_no }, "Certificate generated"));
   } catch (error) {
-    return res
-      .status(500)
-      .json(new ApiError(500, error?.message || "Failed to generate certificate. Please try again."));
+    return res.status(500).json(new ApiError(500, error?.message || "Failed to generate certificate. Please try again."));
   }
 });
 
@@ -461,4 +500,139 @@ export const verifyOtp = asyncHandler(async (req, res) => {
 
   await Otp.deleteOne({ _id: record._id });
   return res.json(new ApiResponse(200, {}, "OTP verified successfully."));
+});
+
+// POST /save_land_noc
+export const storeLandNoc = asyncHandler(async (req, res) => {
+  const b = req.body;
+
+  const requiredFields = [
+    "mobile",
+    "date",
+    "dag_no",
+    "khatian_no",
+    "jl_no",
+    "mouza",
+    "land_area",
+    "ward_sansad",
+    "post_office",
+    "village",
+    "owner_name",
+    "relation_with",
+    "relation_with_name",
+    "from_land_type",
+    "to_land_type",
+    "land_used_as",
+  ];
+  for (const field of requiredFields) {
+    if (!b[field]) return res.status(400).json(new ApiError(400, `${field} is required`));
+  }
+  if (!/^[6-9]\d{9}$/.test(b.mobile)) {
+    return res.status(400).json(new ApiError(400, "Invalid mobile number"));
+  }
+
+  const application_no = crypto.randomBytes(5).toString("hex").toUpperCase();
+
+  const landNoc = await LandNoc.create({
+    office: req.office._id,
+    application_no,
+    mobile: b.mobile,
+    sl_no: b.sl_no,
+    date: b.date,
+    dag_no: b.dag_no,
+    khatian_no: b.khatian_no,
+    jl_no: b.jl_no,
+    mouza: b.mouza,
+    land_area: b.land_area,
+    chatak: b.chatak,
+    sq_feet: b.sq_feet,
+    ward_sansad: b.ward_sansad,
+    post_office: b.post_office,
+    village: b.village,
+    owner_name: b.owner_name,
+    relation_with: b.relation_with,
+    relation_with_name: b.relation_with_name,
+    from_land_type: b.from_land_type,
+    to_land_type: b.to_land_type,
+    land_used_as: b.land_used_as,
+  });
+
+  await sendSms(
+    landNoc.mobile,
+    `Dear Applicant, your application for Land NOC with ID ${application_no} has been successfully submitted. Please keep this ID for future reference. Regards, ${req.office.name}`,
+    "1407172986181821963"
+  );
+
+  return res.status(201).json(new ApiResponse(201, { application_no: landNoc.application_no }, "Application Submitted!"));
+});
+
+// POST /save_burning
+export const storeBurning = asyncHandler(async (req, res) => {
+  const b = req.body;
+
+  const requiredFields = [
+    "mobile",
+    "memo_no",
+    "memo_date",
+    "certificate_type",
+    "deceased_name",
+    "gender",
+    "relation_with",
+    "relation_with_name",
+    "resident_type",
+    "died_on",
+    "burnt_buried_on",
+    "sansad",
+    "village",
+    "post_office",
+    "mouza",
+    "pin_code",
+    "issued_to",
+    "relation_with_deceased",
+  ];
+  for (const field of requiredFields) {
+    if (!b[field]) return res.status(400).json(new ApiError(400, `${field} is required`));
+  }
+  if (!/^[6-9]\d{9}$/.test(b.mobile)) {
+    return res.status(400).json(new ApiError(400, "Invalid mobile number"));
+  }
+  if (b.resident_type === "TENANT" && !b.owner_name?.trim()) {
+    return res.status(400).json(new ApiError(400, "Owner name is required for tenants"));
+  }
+
+  const application_no = crypto.randomBytes(5).toString("hex").toUpperCase();
+
+  const burning = await Burning.create({
+    office: req.office._id,
+    application_no,
+    issued_by: b.issued_by,
+    mobile: b.mobile,
+    memo_no: b.memo_no,
+    memo_date: b.memo_date,
+    certificate_type: b.certificate_type,
+    deceased_name: b.deceased_name,
+    gender: b.gender,
+    relation_with: b.relation_with,
+    relation_with_name: b.relation_with_name,
+    resident_type: b.resident_type,
+    owner_name: b.owner_name,
+    died_on: b.died_on,
+    burnt_buried_on: b.burnt_buried_on,
+    place: b.place,
+    sansad: b.sansad,
+    village: b.village,
+    post_office: b.post_office,
+    mouza: b.mouza,
+    pin_code: b.pin_code,
+    issued_to: b.issued_to,
+    relation_with_deceased: b.relation_with_deceased,
+  });
+
+  await sendSms(
+    burning.mobile,
+    `Dear Applicant, your application for ${burning.certificate_type} certificate with ID ${application_no} has been successfully submitted. Please keep this ID for future reference. Regards, ${req.office.name}`,
+    "1407172986181821963"
+  );
+
+  return res.status(201).json(new ApiResponse(201, { application_no: burning.application_no }, "Application Submitted!"));
 });

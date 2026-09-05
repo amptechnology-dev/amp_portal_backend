@@ -10,6 +10,8 @@ import { Download } from "../models/download.model.js";
 import { OldData } from "../models/oldData.model.js";
 import { OldDataType } from "../models/oldDataType.model.js";
 import { sendSms } from "../utils/sendSms.js";
+import { LandNoc } from "../models/landNoc.model.js";
+import { Burning } from "../models/burning.model.js";
 import { uploadToR2 } from "../utils/r2Uploader.js";
 import {deleteFromR2} from "../utils/r2Uploader.js"
 import fs from "fs";
@@ -19,49 +21,63 @@ import path from "path";
 export const dashboardStats = asyncHandler(async (req, res) => {
   const officeId = req.user.office;
 
-  const [rejectedApp, rejectedHeir, completedApp, completedHeir, pendingApp, pendingHeir, totalApp, totalHeir, typeCounts] =
-    await Promise.all([
-      Application.countDocuments({ office: officeId, status: "rejected" }),
-      Heirship.countDocuments({ office: officeId, status: "rejected" }),
-      Application.countDocuments({ office: officeId, status: "completed" }),
-      Heirship.countDocuments({ office: officeId, status: "completed" }),
-      Application.countDocuments({ office: officeId, status: "pending" }),
-      Heirship.countDocuments({ office: officeId, status: "pending" }),
-      Application.countDocuments({ office: officeId }),
-      Heirship.countDocuments({ office: officeId }),
-      Application.aggregate([{ $match: { office: officeId } }, { $group: { _id: "$application_type", count: { $sum: 1 } } }]),
-    ]);
+  const [
+    rejectedApp, rejectedHeir, rejectedLandNoc, rejectedBurning,
+    completedApp, completedHeir, completedLandNoc, completedBurning,
+    pendingApp, pendingHeir, pendingLandNoc, pendingBurning,
+    totalApp, totalHeir, totalLandNoc, totalBurning,
+    typeCounts,
+  ] = await Promise.all([
+    Application.countDocuments({ office: officeId, status: "rejected" }),
+    Heirship.countDocuments({ office: officeId, status: "rejected" }),
+    LandNoc.countDocuments({ office: officeId, status: "rejected" }),
+    Burning.countDocuments({ office: officeId, status: "rejected" }),
+    Application.countDocuments({ office: officeId, status: "completed" }),
+    Heirship.countDocuments({ office: officeId, status: "completed" }),
+    LandNoc.countDocuments({ office: officeId, status: "completed" }),
+    Burning.countDocuments({ office: officeId, status: "completed" }),
+    Application.countDocuments({ office: officeId, status: "pending" }),
+    Heirship.countDocuments({ office: officeId, status: "pending" }),
+    LandNoc.countDocuments({ office: officeId, status: "pending" }),
+    Burning.countDocuments({ office: officeId, status: "pending" }),
+    Application.countDocuments({ office: officeId }),
+    Heirship.countDocuments({ office: officeId }),
+    LandNoc.countDocuments({ office: officeId }),
+    Burning.countDocuments({ office: officeId }),
+    Application.aggregate([{ $match: { office: officeId } }, { $group: { _id: "$application_type", count: { $sum: 1 } } }]),
+  ]);
 
   const typeCountMap = typeCounts.reduce((acc, t) => ({ ...acc, [t._id]: t.count }), {});
   typeCountMap.heirship = totalHeir;
+  typeCountMap.land_noc = totalLandNoc;
+  typeCountMap.burning = totalBurning;
 
   return res.json(
     new ApiResponse(200, {
-      rejectedCount: rejectedApp + rejectedHeir,
-      completedCount: completedApp + completedHeir,
-      pendingCount: pendingApp + pendingHeir,
-      totalCount: totalApp + totalHeir,
+      rejectedCount: rejectedApp + rejectedHeir + rejectedLandNoc + rejectedBurning,
+      completedCount: completedApp + completedHeir + completedLandNoc + completedBurning,
+      pendingCount: pendingApp + pendingHeir + pendingLandNoc + pendingBurning,
+      totalCount: totalApp + totalHeir + totalLandNoc + totalBurning,
       typeCounts: typeCountMap,
     }, "Dashboard stats fetched.")
   );
-  // Chart.js diye eita frontend e chart banate parbi, ekhane raw data dilam
 });
 
-// GET /admin/application?status=pending|rejected|all
 export const listApplications = asyncHandler(async (req, res) => {
   const officeId = req.user.office;
   const { status } = req.query;
   const filter = { office: officeId };
   if (status && status !== "all") filter.status = status;
 
-  const [applications, heirships] = await Promise.all([
+  const [applications, heirships, landNocs, burnings] = await Promise.all([
     Application.find(filter).sort("-createdAt").lean(),
     Heirship.find(filter).sort("-createdAt").lean(),
+    LandNoc.find(filter).sort("-createdAt").lean(),
+    Burning.find(filter).sort("-createdAt").lean(),
   ]);
 
-  let combined = [...applications, ...heirships];
+  let combined = [...applications, ...heirships, ...landNocs, ...burnings];
 
-  // Attach certificate details for completed applications
   if (!status || status === "all" || status === "completed") {
     const applicationNos = combined
       .filter((app) => app.status === "completed")
@@ -90,6 +106,7 @@ export const listApplications = asyncHandler(async (req, res) => {
           issue_date: cert.issue_date,
           issued_by: cert.issued_by?.name || null,
           remarks: cert.remarks ?? app.remarks,
+          certificate_url: cert.certificate_file || null, // <-- নতুন যোগ করা field
         };
       });
     }
@@ -100,7 +117,6 @@ export const listApplications = asyncHandler(async (req, res) => {
   return res.json(new ApiResponse(200, combined, "Applications fetched."));
 });
 
-// GET /admin/application/view/:id  (id = application_no)
 export const viewApplication = asyncHandler(async (req, res) => {
   const application =
     (await Application.findOne({ application_no: req.params.id }).populate(
@@ -108,6 +124,12 @@ export const viewApplication = asyncHandler(async (req, res) => {
     )) ||
     (await Heirship.findOne({ application_no: req.params.id }).populate(
       "village post_office police_station sansad id_type successor"
+    )) ||
+    (await LandNoc.findOne({ application_no: req.params.id }).populate(
+      "village post_office ward_sansad mouza"
+    )) ||
+    (await Burning.findOne({ application_no: req.params.id }).populate(
+      "village post_office sansad mouza"
     ));
 
   if (!application) {
@@ -117,12 +139,16 @@ export const viewApplication = asyncHandler(async (req, res) => {
   return res.json(new ApiResponse(200, application, "Application fetched."));
 });
 
-// POST /admin/application/reject
+// POST /admin/application/reject  (MODIFIED)
 export const rejectApplication = asyncHandler(async (req, res) => {
   const { application_no, remarks } = req.body;
 
-  let application = await Application.findOne({ application_no });
-  if (!application) application = await Heirship.findOne({ application_no });
+  const application =
+    (await Application.findOne({ application_no })) ||
+    (await Heirship.findOne({ application_no })) ||
+    (await LandNoc.findOne({ application_no })) ||
+    (await Burning.findOne({ application_no }));
+
   if (!application) return res.status(404).json(new ApiError(404, "Application not found."));
 
   application.status = "rejected";

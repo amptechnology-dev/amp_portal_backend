@@ -8,6 +8,7 @@ import { PostOfficeMaster } from "../models/postOfficeMaster.model.js";
 import { PoliceStation } from "../models/policeStation.model.js";
 import { SansadMaster } from "../models/sansadMaster.model.js";
 import { DocumentType } from "../models/documentType.model.js";
+import { MouzaMaster } from "../models/mouzaMaster.model.js";
 
 const router = Router();
 router.route("/ping").get((req, res) => {
@@ -50,5 +51,6 @@ registerPublicMaster("post_office", PostOfficeMaster, "Post Office");
 registerPublicMaster("police_station", PoliceStation, "Police Station");
 registerPublicMaster("sansad", SansadMaster, "Sansad");
 registerPublicMaster("id_type", DocumentType, "Document Type");
+registerPublicMaster("mouza", MouzaMaster, "Mouza")
 
 export default router;

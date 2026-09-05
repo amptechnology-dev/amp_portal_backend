@@ -11,7 +11,7 @@ const certificateSchema = new Schema(
     application: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Application",
-      required: true,
+      required: false,
       index: true,
     },
     application_no: {
